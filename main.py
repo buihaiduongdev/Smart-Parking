@@ -118,14 +118,23 @@ class Car:
         border_width = 2
         pygame.draw.rect(screen, border_color, new_rect, border_width)
 
-class Person:
-    def __init__(self, x, y, image):
-        self.x = x
-        self.y = y
-        self.image = image
+class Pedestrian(pygame.sprite.Sprite):
+    def __init__(self, x, y, image_path, speed=1):
+        super().__init__()
+        self.image = pygame.image.load(image_path).convert_alpha()
+        self.rect = self.image.get_rect(topleft=(x, y))
+        self.speed = speed
+        self.direction = 1
+        self.mask = pygame.mask.from_surface(self.image) # Thêm mask cho người đi bộ
 
-person_img = pygame.image.load('person.png').convert_alpha()
-person = Person(0, 0, person_img)
+    def update(self):
+        self.rect.x += self.speed * self.direction
+
+        # Kiểm tra xem có ra khỏi màn hình không
+        if self.rect.left > screen_width:
+            self.rect.right = 0  # Đặt lại vị trí ở bên trái màn hình
+        elif self.rect.right < 0:
+            self.rect.left = screen_width # Đặt lại vị trí ở bên phải màn hình
 
 class MapData:
     def __init__(self):
@@ -179,6 +188,13 @@ for obj in mapData.tmx_data.objects:
 for obj in tmx_data.objects:
     print(obj.name)
 
+pedestrian_sprites = pygame.sprite.Group() # Tạo một group cho người đi bộ
+
+for obj in tmx_data.objects:
+    if obj.name == "RandomPedestrian":
+        pedestrian = Pedestrian(obj.x, obj.y, "PNG/Other/Person_GreenBrown1.png") # Thay "pedestrian.png" bằng ảnh người đi bộ của bạn
+        pedestrian_sprites.add(pedestrian)
+
 #get start position
 for obj in tmx_data.objects:
     pos = obj.x, obj.y
@@ -216,6 +232,17 @@ while True:
                 car1.speed = 0
                 car1.angle = 0
                 game_run = "col"
+
+        for pedestrian in pedestrian_sprites:
+            offset_x = pedestrian.rect.left - car1.rect.left
+            offset_y = pedestrian.rect.top - car1.rect.top
+            if car1.mask.overlap(pedestrian.mask, (offset_x, offset_y)):
+                print("Collision detected with pedestrian!")
+                car1.x = Start_X
+                car1.y = Start_Y
+                car1.speed = 0
+                car1.angle = 0
+                game_run = "col" # xử lý va chạm như va chạm với xe khác
             #check if car is inside finish zone
         if finish_rect and car1.rect.colliderect(finish_rect) and finish_rect.contains(car1.rect):
             print("Car has reached the finish zone!")
@@ -244,10 +271,14 @@ while True:
         sprite_group.draw(screen)
         sprite_col.draw(screen)
 
-        screen.blit(person.image, (person.x, person.y))
-
 
         car1.draw()
+
+        pedestrian_sprites.update() # Cập nhật vị trí người đi bộ
+        pedestrian_sprites.draw(screen) # Vẽ người đi bộ
+
+        pygame.display.flip()
+        clock.tick(60)
         if pressed[pygame.K_b]:
             pathfinder.crate_path()
             pathfinder.draw_path()
