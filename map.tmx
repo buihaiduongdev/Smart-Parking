@@ -110,9 +110,4 @@
   <object id="66" name="RandomCar" type="Collision" gid="190" x="748" y="186" width="40" height="75"/>
   <object id="67" name="RandomCar" type="Collision" gid="190" x="1068" y="184" width="40" height="75"/>
  </objectgroup>
- <objectgroup id="6" name="Pedestrians">
-  <object id="72" name="RandomPedestrian" type="Pedestrian" gid="170" x="-45.7858" y="481.868" width="22" height="28"/>
-  <object id="73" name="RandomPedestrian" type="Pedestrian" gid="173" x="1824.83" y="262.565" width="22" height="28"/>
-  <object id="77" name="RandomPedestrian" type="Pedestrian" gid="173" x="882.034" y="-15.7095" width="22" height="28" rotation="269.825"/>
- </objectgroup>
 </map>

@@ -32,7 +32,23 @@ matrix = [[39,32,32,32,32,32,32,32,32,45],
 [135,159,133,133,133,133,125,138,17,135],
 [52,32,32,32,32,32,32,32,32,58],
 ]
+# Tọa độ cổng (góc trên bên trái và góc dưới bên phải)
+gates = {
+    "top_left": ((72.8814, 22.0339), (810.1624, 44.0678)), #Border 46
+    "top_right": ((1061.02, 23.7288), (1857.63, 45.7627)), #Border 47
+    "bottom_left": ((66.1017, 977.966), (815.2547, 1008.4745)), #Border 50
+    "bottom_right": ((1050.85, 977.966), (1888.138, 1001.6948)), #Border 51
+}
+pedestrian_images = [
+    pygame.image.load("person_BlueBlack1.png").convert_alpha(),
+    pygame.image.load("person_BlueBlack2.png").convert_alpha(),
+    pygame.image.load("Person_BlueBlond1.png").convert_alpha(),
+    pygame.image.load("Person_BlueBlond2.png").convert_alpha(),
+    pygame.image.load("Person_BlueBrown1.png").convert_alpha(),
+    pygame.image.load("Person_BlueBrown2.png").convert_alpha(),
 
+    # Thêm các hình ảnh người đi bộ khác vào đây
+]
 button_x = (screen_width - button_width) // 2
 button_y = (screen_height - button_height) // 2
 playBtn = Button.Button(button_x, button_y, play_img, 0.4)
@@ -64,7 +80,32 @@ def RandomCell(matrix, startx, starty):
                     candidates.append((x, y))
     x, y = random.choice(candidates)
     return x, y
+spawn_timer = 0
+spawn_interval = 2000
 
+def spawn_random_pedestrian():
+    gate_name, gate_coords = random.choice(list(gates.items()))
+    x_min, y_min = gate_coords[0]
+    x_max, y_max = gate_coords[1]
+
+    x = random.uniform(x_min, x_max)
+    y = random.uniform(y_min, y_max)
+    image = random.choice(pedestrian_images)
+
+    # Xác định hướng di chuyển dựa trên cổng
+    if gate_name == "top_left":
+        direction = pygame.math.Vector2(1, 1)  # Xuống dưới và sang phải
+    elif gate_name == "top_right":
+        direction = pygame.math.Vector2(-1, 1) # Xuống dưới và sang trái
+    elif gate_name == "bottom_left":
+        direction = pygame.math.Vector2(1, -1) # Lên trên và sang phải
+    else:  # bottom_right
+        direction = pygame.math.Vector2(-1, -1) # Lên trên và sang trái
+
+    direction.normalize_ip() # Chuẩn hóa vectơ hướng
+
+    pedestrian = Pedestrian(x, y, image, direction) # Truyền vectơ hướng vào Pedestrian
+    pedestrian_sprites.add(pedestrian)
 class Pathfinder:
     def __init__(self, matrix):
         self.matrix = matrix
@@ -119,22 +160,22 @@ class Car:
         pygame.draw.rect(screen, border_color, new_rect, border_width)
 
 class Pedestrian(pygame.sprite.Sprite):
-    def __init__(self, x, y, image_path, speed=1):
+    def __init__(self, x, y, surface, direction, speed=1):
         super().__init__()
-        self.image = pygame.image.load(image_path).convert_alpha()
+        self.image = surface
         self.rect = self.image.get_rect(topleft=(x, y))
         self.speed = speed
-        self.direction = 1
-        self.mask = pygame.mask.from_surface(self.image) # Thêm mask cho người đi bộ
+        self.direction = direction # Lưu trữ vectơ hướng
+        self.mask = pygame.mask.from_surface(self.image)
 
     def update(self):
-        self.rect.x += self.speed * self.direction
+        self.rect.x += self.speed * self.direction.x
+        self.rect.y += self.speed * self.direction.y
 
         # Kiểm tra xem có ra khỏi màn hình không
-        if self.rect.left > screen_width:
-            self.rect.right = 0  # Đặt lại vị trí ở bên trái màn hình
-        elif self.rect.right < 0:
-            self.rect.left = screen_width # Đặt lại vị trí ở bên phải màn hình
+        if self.rect.left > screen_width or self.rect.right < 0 or \
+           self.rect.top > screen_height or self.rect.bottom < 0:
+            self.kill() # Xóa người đi bộ khi ra khỏi màn hình
 
 class MapData:
     def __init__(self):
@@ -188,12 +229,16 @@ for obj in mapData.tmx_data.objects:
 for obj in tmx_data.objects:
     print(obj.name)
 
-pedestrian_sprites = pygame.sprite.Group() # Tạo một group cho người đi bộ
+pedestrian_sprites = pygame.sprite.Group()
 
 for obj in tmx_data.objects:
     if obj.name == "RandomPedestrian":
-        pedestrian = Pedestrian(obj.x, obj.y, "PNG/Other/Person_GreenBrown1.png") # Thay "pedestrian.png" bằng ảnh người đi bộ của bạn
-        pedestrian_sprites.add(pedestrian)
+        gid = obj.gid
+        if gid: # Check if gid exists
+            tile = tmx_data.get_tile_image_by_gid(gid)
+            if tile: # Check if tile image exists
+                pedestrian = Pedestrian(obj.x, obj.y, tile) # Pass the surface to Pedestrian
+                pedestrian_sprites.add(pedestrian)
 
 #get start position
 for obj in tmx_data.objects:
@@ -274,8 +319,14 @@ while True:
 
         car1.draw()
 
+        current_time = pygame.time.get_ticks()
+        if current_time - spawn_timer > spawn_interval:
+            spawn_random_pedestrian()
+            spawn_timer = current_time
+
         pedestrian_sprites.update() # Cập nhật vị trí người đi bộ
-        pedestrian_sprites.draw(screen) # Vẽ người đi bộ
+        pedestrian_sprites.draw(screen)
+
 
         pygame.display.flip()
         clock.tick(60)
