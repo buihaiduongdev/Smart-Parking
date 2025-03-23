@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="30" height="16" tilewidth="64" tileheight="64" infinite="0" nextlayerid="7" nextobjectid="78">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="30" height="16" tilewidth="64" tileheight="64" infinite="0" nextlayerid="7" nextobjectid="80">
  <editorsettings>
   <export target="../../../map1.csv" format="csv"/>
  </editorsettings>
@@ -106,7 +106,7 @@
   <object id="53" name="Border" type="Border" x="1869.49" y="601.695" width="32.2034" height="352.542"/>
   <object id="59" name="RandomCar" type="Collision" gid="202" x="558" y="468" width="41" height="75"/>
   <object id="60" name="RandomCar" type="Collision" gid="179" x="1072" y="473" width="40" height="81"/>
-  <object id="61" name="RandomCar" type="Collision" gid="193" x="1199" y="465" width="42" height="74"/>
+  <object id="61" name="RandomCar" type="Collision" gid="193" x="1195" y="469" width="42" height="74"/>
   <object id="66" name="RandomCar" type="Collision" gid="190" x="748" y="186" width="40" height="75"/>
   <object id="67" name="RandomCar" type="Collision" gid="190" x="1068" y="184" width="40" height="75"/>
  </objectgroup>

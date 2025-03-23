@@ -40,12 +40,12 @@ gates = {
     "bottom_right": ((1050.85, 977.966), (1888.138, 1001.6948)), #Border 51
 }
 pedestrian_images = [
-    pygame.image.load("person_BlueBlack1.png").convert_alpha(),
-    pygame.image.load("person_BlueBlack2.png").convert_alpha(),
-    pygame.image.load("Person_BlueBlond1.png").convert_alpha(),
-    pygame.image.load("Person_BlueBlond2.png").convert_alpha(),
-    pygame.image.load("Person_BlueBrown1.png").convert_alpha(),
-    pygame.image.load("Person_BlueBrown2.png").convert_alpha(),
+    pygame.image.load(".\PNG\Other\Person_BlueBlack1.png").convert_alpha(),
+    pygame.image.load(".\PNG\Other\person_BlueBlack2.png").convert_alpha(),
+    pygame.image.load(".\PNG\Other\Person_BlueBlond1.png").convert_alpha(),
+    pygame.image.load(".\PNG\Other\Person_BlueBlond2.png").convert_alpha(),
+    pygame.image.load(".\PNG\Other\Person_BlueBrown1.png").convert_alpha(),
+    pygame.image.load(".\PNG\Other\Person_BlueBrown2.png").convert_alpha(),
 
     # Thêm các hình ảnh người đi bộ khác vào đây
 ]
