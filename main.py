@@ -14,6 +14,10 @@ screen = pygame.display.set_mode((1920, 1080))
 screen_width, screen_height = pygame.display.get_surface().get_size()
 pygame.display.set_caption("Car Game")
 
+# Thời gian spawn người đi bộ (tính bằng mili giây)
+min_time_pedes_spawn = 2000  # 2 giây
+max_time_pedes_spawn = 6000  # 5 giây
+
 # Tải hình ảnh
 img = pygame.image.load("car.png").convert_alpha()
 play_img = pygame.image.load("PlayButton.png")
@@ -41,14 +45,24 @@ gates = {
     "bottom_right": ((1050.85, 977.966), (1888.138, 1001.6948)),
 }
 
+# Offset cho PedestrianPaths1
+offset_pedes_x = 0
+offset_pedes_y = -576
+
+# Offset cho PedestrianPaths2
+offset_pedes_x2 = 0
+offset_pedes_y2 = -565
+
 # Tải hình ảnh người đi bộ
 pedestrian_images = [
     pygame.image.load(".\PNG\Other\Person_BlueBlack1.png").convert_alpha(),
-    pygame.image.load(".\PNG\Other\person_BlueBlack2.png").convert_alpha(),
-    pygame.image.load(".\PNG\Other\Person_BlueBlond1.png").convert_alpha(),
-    pygame.image.load(".\PNG\Other\Person_BlueBlond2.png").convert_alpha(),
-    pygame.image.load(".\PNG\Other\Person_BlueBrown1.png").convert_alpha(),
-    pygame.image.load(".\PNG\Other\Person_BlueBrown2.png").convert_alpha(),
+    pygame.image.load(".\PNG\Other\Person_RedBlack1.png").convert_alpha(),
+    pygame.image.load(".\PNG\Other\Person_YellowBrown2.png").convert_alpha(),
+    pygame.image.load(".\PNG\Other\Person_RedBlond1.png").convert_alpha(),
+    pygame.image.load(".\PNG\Other\Person_PurpleBrown1.png").convert_alpha(),
+    pygame.image.load(".\PNG\Other\Person_OrangeBrown1.png").convert_alpha(),
+    pygame.image.load(".\PNG\Other\Person_GreenBlack2.png").convert_alpha(),
+
 ]
 
 # Thiết lập nút bấm
@@ -92,7 +106,7 @@ class Pathfinder:
         print(self.path)
     def draw_path(self):
         if hasattr(self, 'path'):
-            points = [(point[0] * 64, point[1] * 64) for point in self.path]
+            points = [(point.x * 64, point.y * 64) for point in self.path]
             pygame.draw.lines(screen, '#4a4a4a', False, points, 5)
     def update(self):
         self.draw_path()
@@ -121,7 +135,7 @@ class Car:
 
 # Lớp người đi bộ
 class Pedestrian(pygame.sprite.Sprite):
-    def __init__(self, x, y, surface, path_points, speed=3):
+    def __init__(self, x, y, surface, path_points, speed=1):
         super().__init__()
         self.image = surface
         self.rect = self.image.get_rect(topleft=(x, y))
@@ -166,13 +180,35 @@ class Pedestrian(pygame.sprite.Sprite):
             self.kill()
 
 # Hàm spawn người đi bộ
-def spawn_random_pedestrian(path_points):
-    if path_points:
-        start_x, start_y = path_points[0]
-        image = random.choice(pedestrian_images)
-        pedestrian = Pedestrian(start_x, start_y, image, path_points)
-        pedestrian_sprites.add(pedestrian)
-        print(f"Spawning pedestrian at: ({start_x}, {start_y})")
+def spawn_random_pedestrian(paths):
+    if not paths:  # Kiểm tra nếu paths rỗng
+        print("No pedestrian paths available!")
+        return
+    
+    # Chọn ngẫu nhiên một đường đi
+    path = random.choice(paths)
+    
+    # Kiểm tra xem path có phải là danh sách hợp lệ không
+    if not isinstance(path, list) or not path or not isinstance(path[0], tuple):
+        print(f"Invalid path: {path}")
+        return
+    
+    # Chọn ngẫu nhiên hướng di chuyển (True: trái sang phải, False: phải sang trái)
+    direction_forward = random.choice([True, False])
+    
+    if direction_forward:
+        # Di chuyển từ trái sang phải (theo thứ tự điểm)
+        start_x, start_y = path[0]  # Đầu tiên của path
+        path_points = path  # Giữ nguyên thứ tự
+    else:
+        # Di chuyển từ phải sang trái (ngược thứ tự điểm)
+        start_x, start_y = path[-1]  # Cuối cùng của path
+        path_points = path[::-1]  # Đảo ngược thứ tự điểm
+    
+    image = random.choice(pedestrian_images)
+    pedestrian = Pedestrian(start_x, start_y, image, path_points)
+    pedestrian_sprites.add(pedestrian)
+    print(f"Spawning pedestrian at: ({start_x}, {start_y}) with direction: {'forward' if direction_forward else 'backward'}")
 
 # Lớp dữ liệu bản đồ
 class MapData:
@@ -220,14 +256,17 @@ for obj in tmx_data.objects:
 # Tải đường đi của người đi bộ (polyline)
 pedestrian_paths = []
 for obj in tmx_data.objects:
-    if obj.name == "PedestrianPaths1":
+    if obj.name in ["PedestrianPaths1", "PedestrianPaths2"]:
         if hasattr(obj, 'points'):
-            layer = next((layer for layer in tmx_data.layers if layer.name == obj.__class__.__name__), None)
-            offset_x = layer.offsetx if layer else 0
-            offset_y = layer.offsety if layer else 0
-            path_points = [(point.x + obj.x + offset_x - 70, point.y + obj.y + offset_y - 250) for point in obj.points]
+            # Chọn offset dựa trên tên đường đi
+            if obj.name == "PedestrianPaths1":
+                offset_x, offset_y = offset_pedes_x, offset_pedes_y
+            else:  # PedestrianPaths2
+                offset_x, offset_y = offset_pedes_x2, offset_pedes_y2
+            
+            path_points = [(point.x + obj.x + offset_x, point.y + obj.y + offset_y) for point in obj.points]
             pedestrian_paths.append(path_points)
-            print("Pedestrian paths:", path_points)
+            print(f"{obj.name} points:", path_points)
         else:
             print(f"Object {obj.name} is not a polyline or polygon!")
 
@@ -248,7 +287,7 @@ car1 = Car(Start_X, Start_Y, 43, 74)
 pathfinder = Pathfinder(matrix)
 clock = pygame.time.Clock()
 spawn_timer = 0
-spawn_interval = 2000  # 2 giây
+next_spawn_interval = random.randint(min_time_pedes_spawn, max_time_pedes_spawn)  # Chọn thời gian ngẫu nhiên ban đầu
 game_run = "menu"
 
 # Vòng lặp chính
@@ -310,10 +349,11 @@ while True:
 
         # Spawn và cập nhật người đi bộ
         current_time = pygame.time.get_ticks()
-        if current_time - spawn_timer > spawn_interval and pedestrian_paths:
-            path = random.choice(pedestrian_paths)
-            spawn_random_pedestrian(path)
+        if current_time - spawn_timer > next_spawn_interval and pedestrian_paths:
+            spawn_random_pedestrian(pedestrian_paths)
             spawn_timer = current_time
+            next_spawn_interval = random.randint(min_time_pedes_spawn, max_time_pedes_spawn)  # Chọn thời gian ngẫu nhiên mới
+            print(f"Next spawn interval: {next_spawn_interval} ms")
 
         pedestrian_sprites.update()
         pedestrian_sprites.draw(screen)
