@@ -27,7 +27,6 @@ pedestrian_images = [
     pygame.image.load("./PNG/Other/Person_OrangeBrown1.png").convert_alpha(),
     pygame.image.load("./PNG/Other/Person_GreenBlack2.png").convert_alpha(),
 ]
-
 # === UI ===
 font = pygame.font.SysFont("calibri", 72)
 TEXT_COL = (255, 255, 255)
@@ -217,6 +216,7 @@ next_spawn_interval = random.randint(min_time_pedes_spawn, max_time_pedes_spawn)
 
 # === Game loop ===
 prev_car_position = (int(car.y) // CELL_SIZE, int(car.x) // CELL_SIZE)
+prev_temp_grid = None
 
 while True:
     for event in pygame.event.get():
@@ -241,36 +241,50 @@ while True:
         clock.tick(60)
         continue
 
+   # Thêm biến toàn cục
+
+    # Trong game loop
     if game_run == "game":
         # Lấy vị trí hiện tại của xe
         car_row = int(car.y) // CELL_SIZE
         car_col = int(car.x) // CELL_SIZE
         current_position = (car_row, car_col)
 
-            # Nếu vị trí thay đổi hoặc có người đi bộ chặn đường, cập nhật đường đi
-        if current_position != prev_car_position or (path is not None and check_pedestrian_on_path(path)):
-            if user_goal_cell and isinstance(user_goal_cell, tuple) and len(user_goal_cell) == 2:
-                # Đánh dấu người đi bộ là vật cản trong grid
-                for ped in pedestrian_sprites:
-                    ped_row = int(ped.rect.centery) // CELL_SIZE
-                    ped_col = int(ped.rect.centerx) // CELL_SIZE
-                    if 0 <= ped_row < len(grid) and 0 <= ped_col < len(grid[0]):
-                        grid[ped_row][ped_col] = 1
+        # Tạo lưới tạm thời để kiểm tra trạng thái hiện tại
+        temp_grid = [row[:] for row in grid]  # Sao chép lưới gốc
+        for ped in pedestrian_sprites:
+            ped_row = int(ped.rect.centery) // CELL_SIZE
+            ped_col = int(ped.rect.centerx) // CELL_SIZE
+            if 0 <= ped_row < len(temp_grid) and 0 <= ped_col < len(temp_grid[0]):
+                temp_grid[ped_row][ped_col] = 1
 
-                # Tìm lại đường đi mới tránh người đi bộ
-                path = a_star(grid, current_position, user_goal_cell)
+        # Kiểm tra xem đường đi hiện tại có còn hợp lệ không
+        path_blocked = path is not None and check_pedestrian_on_path(path)
+        path_invalid = path is not None and any(temp_grid[row][col] == 1 for row, col in path)
+
+        # Kiểm tra xem có ô nào trên đường đi được giải phóng không
+        path_needs_update = False
+        if path and prev_temp_grid:
+            for row, col in path:
+                if (prev_temp_grid[row][col] == 1 and temp_grid[row][col] == 0 and grid[row][col] == 0):
+                    path_needs_update = True
+                    break
+
+        # Nếu vị trí thay đổi, đường đi bị chặn, không hợp lệ, hoặc cần cập nhật, tính lại đường đi
+        if current_position != prev_car_position or path_blocked or path_invalid or path_needs_update:
+            if user_goal_cell and isinstance(user_goal_cell, tuple) and len(user_goal_cell) == 2:
+                # Tìm đường đi mới trên lưới tạm thời
+                path = a_star(temp_grid, current_position, user_goal_cell)
                 if path:  # Nếu tìm thấy đường đi mới
                     prev_car_position = current_position
                 else:
-                    # Hiển thị thông báo khi không tìm thấy đường đi hợp lý
                     print("Hiện chưa tìm được đường đi hợp lý")
                     draw_text("Hiện chưa tìm được đường đi hợp lý", font, (255, 0, 0), SCREEN_WIDTH // 2 - 300, SCREEN_HEIGHT // 2)
             else:
                 print("Lỗi: user_goal_cell không hợp lệ hoặc không tồn tại.")
 
-
-
-
+        # Cập nhật prev_temp_grid cho khung tiếp theo
+        prev_temp_grid = [row[:] for row in temp_grid]
         keys = pygame.key.get_pressed()
         ACCEL, DECEL, FRICTION, TURN = 0.1, 0.05, 0.98, 2
         if keys[pygame.K_UP]: car.speed += ACCEL

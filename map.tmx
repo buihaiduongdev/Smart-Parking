@@ -132,8 +132,5 @@
   <object id="122" name="PedestrianPaths2" type="PedestrianPaths" x="0" y="512">
    <polygon points="0,0 1920,0 1920,64 0,64"/>
   </object>
-  <object id="123" name="finish" type="finish" x="1438" y="236">
-   <point/>
-  </object>
  </objectgroup>
 </map>
