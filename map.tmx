@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="30" height="16" tilewidth="64" tileheight="64" infinite="0" nextlayerid="8" nextobjectid="122">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="30" height="16" tilewidth="64" tileheight="64" infinite="0" nextlayerid="8" nextobjectid="124">
  <editorsettings>
-  <export target="../../../map1.csv" format="csv"/>
+  <export format="csv"/>
  </editorsettings>
  <tileset firstgid="1" name="Other" tilewidth="64" tileheight="64" tilecount="169" columns="13">
-  <image source="Spritesheets/Other.png" width="854" height="860"/>
+  <image source="../../../source/repos/Smart-Parking/Spritesheets/Other.png" width="854" height="860"/>
  </tileset>
- <tileset firstgid="170" source="objects.tsx"/>
- <tileset firstgid="218" source="tilemap_packed.tsx"/>
- <tileset firstgid="704" source="Other.tsx"/>
- <tileset firstgid="873" source="tilemap_packed_2.tsx"/>
- <tileset firstgid="1359" source="tilemap_packed_3.tsx"/>
+ <tileset firstgid="170" source="../../../source/repos/Smart-Parking/objects.tsx"/>
+ <tileset firstgid="218" source="../../../source/repos/Smart-Parking/tilemap_packed.tsx"/>
+ <tileset firstgid="704" source="../../../source/repos/Smart-Parking/Other.tsx"/>
+ <tileset firstgid="873" source="../../../source/repos/Smart-Parking/tilemap_packed_2.tsx"/>
+ <tileset firstgid="1359" source="../../../source/repos/Smart-Parking/tilemap_packed_3.tsx"/>
  <layer id="1" name="park" width="30" height="16">
   <data encoding="csv">
 3221225827,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225828,679,680,681,3221225830,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225825,
@@ -92,10 +92,9 @@
 </data>
  </layer>
  <objectgroup id="2" name="objects">
-  <object id="13" name="Start" x="964.102" y="1011.84">
+  <object id="13" name="Start" x="934.102" y="945.84">
    <point/>
   </object>
-  <object id="44" name="Finish" type="Finish" x="1288" y="93.627" width="108.475" height="108.475"/>
   <object id="46" name="Border" type="Border" x="72.8814" y="22.0339" width="737.288" height="22.0339"/>
   <object id="47" name="Border" type="Border" x="1061.02" y="23.7288" width="796.61" height="22.0339"/>
   <object id="48" name="Border" type="Border" x="10.1695" y="74.5763" width="40.678" height="352.542"/>
@@ -104,37 +103,37 @@
   <object id="51" name="Border" type="Border" x="1050.85" y="977.966" width="837.288" height="23.7288"/>
   <object id="52" name="Border" type="Border" x="1867.8" y="62.7119" width="40.678" height="362.712"/>
   <object id="53" name="Border" type="Border" x="1869.49" y="601.695" width="32.2034" height="352.542"/>
-  <object id="59" name="RandomCar" type="Collision" gid="202" x="558" y="468" width="41" height="75"/>
-  <object id="60" name="RandomCar" type="Collision" gid="179" x="1072" y="473" width="40" height="81"/>
-  <object id="61" name="RandomCar" type="Collision" gid="193" x="1195" y="469" width="42" height="74"/>
-  <object id="66" name="RandomCar" type="Collision" gid="190" x="748" y="186" width="40" height="75"/>
-  <object id="67" name="RandomCar" type="Collision" gid="190" x="1068" y="184" width="40" height="75"/>
-  <object id="89" name="DespawnArea1" type="DespawnArea" x="1075.67" y="169" width="26" height="44"/>
-  <object id="95" name="PedestrianPaths1" type="PedestrianPaths" x="0" y="576" visible="0">
+  <object id="59" name="RandomCar" type="Collision" gid="202" x="652.333" y="477.333" width="41" height="75"/>
+  <object id="60" name="RandomCar" type="Collision" gid="179" x="1031" y="472" width="40" height="81"/>
+  <object id="61" name="RandomCar" type="Collision" gid="193" x="1169" y="469" width="42" height="74"/>
+  <object id="66" name="RandomCar" type="Collision" gid="190" x="717" y="215" width="40" height="75"/>
+  <object id="67" name="RandomCar" type="Collision" gid="190" x="1036" y="211" width="40" height="75"/>
+  <object id="89" name="DespawnArea1" type="DespawnArea" x="1043.67" y="196" width="26" height="44"/>
+  <object id="95" name="PedestrianPaths1" type="PedestrianPaths" x="0" y="576">
    <polygon points="0,0 64,0 64,256 832,256 832,384 1024,384 1024,256 1792,256 1792,0 1920,0 1920,-128 1792,-128 1792,-384 1024,-384 1024,-512 832,-512 832,-384 64,-384 64,-128 0,-128 0,0"/>
   </object>
-  <object id="96" name="DespawnArea1" type="DespawnArea" x="1743" y="162" width="26" height="44"/>
+  <object id="96" name="DespawnArea1" type="DespawnArea" x="1747" y="168" width="26" height="44"/>
   <object id="97" name="DespawnArea1" type="DespawnArea" x="845" y="38" width="26" height="44"/>
   <object id="98" name="DespawnArea1" type="DespawnArea" x="1893" y="506" width="26" height="44"/>
-  <object id="100" name="DespawnArea1" type="DespawnArea" x="757" y="164" width="26" height="44"/>
+  <object id="100" name="DespawnArea1" type="DespawnArea" x="726" y="193" width="26" height="44"/>
   <object id="101" name="DespawnArea1" type="DespawnArea" x="851" y="936" width="26" height="44"/>
-  <object id="104" name="PedestrianPaths2" type="PedestrianPaths" x="2" y="520">
-   <polygon points="0,0 1920,0 1920,18 2,18"/>
+  <object id="105" name="DespawnArea1" type="DespawnArea" x="659.333" y="469.333" width="26" height="32"/>
+  <object id="106" name="DespawnArea1" type="DespawnArea" x="1040" y="467" width="26" height="37"/>
+  <object id="107" name="DespawnArea1" type="DespawnArea" x="1173" y="464" width="26" height="38"/>
+  <object id="108" name="RandomCar" type="Collision" gid="188" x="1035" y="630" width="40" height="75"/>
+  <object id="109" name="RandomCar" type="Collision" gid="188" x="1549" y="887" width="40" height="75"/>
+  <object id="110" name="RandomCar" type="Collision" gid="188" x="333" y="211" width="40" height="75"/>
+  <object id="111" name="RandomCar" type="Collision" gid="215" x="588" y="890" width="40" height="83"/>
+  <object id="113" name="RandomCar" type="Collision" gid="199" x="1099" y="209" width="40" height="75"/>
+  <object id="115" name="DespawnArea1" type="DespawnArea" x="338" y="209" width="26" height="36"/>
+  <object id="116" name="DespawnArea1" type="DespawnArea" x="1106" y="207" width="26" height="44"/>
+  <object id="117" name="DespawnArea1" type="DespawnArea" x="593" y="792" width="26" height="24"/>
+  <object id="120" name="DespawnArea1" type="DespawnArea" x="1554" y="777" width="26" height="44"/>
+  <object id="122" name="PedestrianPaths2" type="PedestrianPaths" x="0" y="512">
+   <polygon points="0,0 1920,0 1920,64 0,64"/>
   </object>
-  <object id="105" name="DespawnArea1" type="DespawnArea" x="565" y="460" width="26" height="80"/>
-  <object id="106" name="DespawnArea1" type="DespawnArea" x="1081" y="468" width="26" height="80"/>
-  <object id="107" name="DespawnArea1" type="DespawnArea" x="1199" y="464" width="26" height="80"/>
-  <object id="108" name="RandomCar" type="Collision" gid="188" x="1068" y="630" width="40" height="75"/>
-  <object id="109" name="RandomCar" type="Collision" gid="188" x="1580" y="920" width="40" height="75"/>
-  <object id="110" name="RandomCar" type="Collision" gid="188" x="300" y="190" width="40" height="75"/>
-  <object id="111" name="RandomCar" type="Collision" gid="215" x="624" y="920" width="40" height="83"/>
-  <object id="112" name="RandomCar" type="Collision" gid="215" x="1520" y="922" width="40" height="83"/>
-  <object id="113" name="RandomCar" type="Collision" gid="199" x="1132" y="180" width="40" height="75"/>
-  <object id="114" name="DespawnArea1" type="DespawnArea" x="1165" y="384" width="26" height="80"/>
-  <object id="115" name="DespawnArea1" type="DespawnArea" x="305" y="188" width="26" height="44"/>
-  <object id="116" name="DespawnArea1" type="DespawnArea" x="1139" y="178" width="26" height="44"/>
-  <object id="117" name="DespawnArea1" type="DespawnArea" x="629" y="802" width="26" height="44"/>
-  <object id="119" name="DespawnArea1" type="DespawnArea" x="1525" y="802" width="26" height="44"/>
-  <object id="120" name="DespawnArea1" type="DespawnArea" x="1585" y="810" width="26" height="44"/>
+  <object id="123" name="finish" type="finish" x="1438" y="236">
+   <point/>
+  </object>
  </objectgroup>
 </map>
