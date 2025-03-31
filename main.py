@@ -15,9 +15,9 @@ pygame.display.set_caption("Car Game")
 clock = pygame.time.Clock()
 
 # === Tải hình ảnh ===
-img = pygame.image.load("car7.png").convert_alpha()
-play_img = pygame.image.load("PlayButton.png")
-emptyBtnImg = pygame.image.load("SmallEmptyButton.png")
+img = pygame.image.load("./PNG/App/car7.png").convert_alpha()
+play_img = pygame.image.load("PNG/App/PlayButton.png")
+emptyBtnImg = pygame.image.load("PNG/App/SmallEmptyButton.png")
 pedestrian_images = [
     pygame.image.load("./PNG/Other/Person_BlueBlack1.png").convert_alpha(),
     pygame.image.load("./PNG/Other/Person_RedBlack1.png").convert_alpha(),
@@ -99,9 +99,115 @@ class Car:
         self.width = width
         self.rect = pygame.Rect(self.x, self.y, height, width)
         self.surface = pygame.Surface((height, width), pygame.SRCALPHA)
+        # Đầu xe đã hướng lên, không cần xoay
         self.surface.blit(img, (0, 0))
-        self.angle = 0
+        self.angle = 0  # Góc 0 hướng lên
         self.speed = 0
+        self.max_speed = 2
+        self.accel = 0.05
+        self.decel = 0.03
+        self.friction = 0.98
+        self.target_index = 1
+        self.mask = pygame.mask.from_surface(pygame.transform.rotate(self.surface, self.angle))
+
+    def move_towards_path(self, path, pedestrian_sprites, space_pressed):
+        if not path or self.target_index >= len(path):
+            self.speed = max(self.speed - self.decel, 0)
+            return
+
+        # Lấy tọa độ mục tiêu tiếp theo trong path
+        target_row, target_col = path[self.target_index]
+        target_x = target_col * CELL_SIZE + CELL_SIZE // 2
+        target_y = target_row * CELL_SIZE + CELL_SIZE // 2
+
+        # Tính khoảng cách và hướng tới mục tiêu
+        dx = target_x - self.rect.centerx
+        dy = target_y - self.rect.centery
+        distance = math.sqrt(dx**2 + dy**2)
+
+        if distance < 5:  # Chuyển sang điểm tiếp theo khi gần mục tiêu
+            self.target_index += 1
+            return
+
+        # Tính góc mục tiêu (đầu xe hướng về path)
+        target_angle = math.degrees(math.atan2(-dx, dy))
+
+        # Điều chỉnh góc mượt mà
+        angle_diff = (target_angle - self.angle) % 360
+        if angle_diff > 180:
+            angle_diff -= 360
+        turn_speed = min(max(angle_diff * 0.1, -3), 3)  # Tăng hệ số để rẽ nhanh hơn
+        self.angle += turn_speed
+
+        # Chỉ di chuyển nếu nhấn Space
+        if space_pressed:
+            # Điều chỉnh tốc độ dựa trên khoảng cách và người đi bộ
+            safe_speed = self.max_speed
+            for ped in pedestrian_sprites:
+                ped_future_x = ped.rect.centerx + ped.speed * (ped.rect.centerx - target_x) / distance
+                ped_future_y = ped.rect.centery + ped.speed * (ped.rect.centery - target_y) / distance
+                future_dist = math.sqrt((self.rect.centerx - ped_future_x)**2 + (self.rect.centery - ped_future_y)**2)
+                if future_dist < 50:
+                    safe_speed = min(safe_speed, max(0, future_dist / 50))
+
+            if distance > 10:
+                self.speed = min(self.speed + self.accel, safe_speed)
+            else:
+                self.speed = max(self.speed - self.decel, 0)
+
+            # Xác định hướng di chuyển dựa trên path (chỉ di chuyển theo trục x hoặc y)
+            if self.target_index > 0:
+                prev_row, prev_col = path[self.target_index - 1]
+                curr_row, curr_col = path[self.target_index]
+                dx_path = curr_col - prev_col  # Hướng theo trục x
+                dy_path = curr_row - prev_row  # Hướng theo trục y
+
+                # Chỉ di chuyển theo trục x hoặc y, không đi chéo
+                new_x = self.x
+                new_y = self.y
+                self.speed *= self.friction
+
+                if dx_path != 0:  # Di chuyển theo trục x (trái/phải)
+                    new_x = self.x + dx_path * self.speed
+                elif dy_path != 0:  # Di chuyển theo trục y (lên/xuống)
+                    new_y = self.y + dy_path * self.speed
+
+                # Kiểm tra va chạm trước khi cập nhật vị trí
+                temp_rect = self.rect.copy()
+                temp_rect.topleft = (int(new_x), int(new_y))
+                collision = False
+                for border in border_rects:
+                    if temp_rect.colliderect(border):
+                        collision = True
+                        break
+
+                if not collision:
+                    self.x, self.y = new_x, new_y
+                else:
+                    self.speed = 0
+            else:
+                # Nếu là điểm đầu tiên, di chuyển theo hướng chuẩn hóa
+                direction = pygame.math.Vector2(dx, dy).normalize() if distance > 0 else pygame.math.Vector2(0, 0)
+                self.speed *= self.friction
+                new_x = self.x + direction.x * self.speed
+                new_y = self.y + direction.y * self.speed
+
+                temp_rect = self.rect.copy()
+                temp_rect.topleft = (int(new_x), int(new_y))
+                collision = False
+                for border in border_rects:
+                    if temp_rect.colliderect(border):
+                        collision = True
+                        break
+
+                if not collision:
+                    self.x, self.y = new_x, new_y
+                else:
+                    self.speed = 0
+        else:
+            self.speed = max(self.speed - self.decel, 0)  # Giảm tốc khi không nhấn Space
+
+        self.rect.topleft = (int(self.x), int(self.y))
         self.mask = pygame.mask.from_surface(pygame.transform.rotate(self.surface, self.angle))
 
     def draw(self):
@@ -241,9 +347,8 @@ while True:
         clock.tick(60)
         continue
 
-   # Thêm biến toàn cục
-
-    # Trong game loop
+            
+        # Trong game loop
     if game_run == "game":
         # Lấy vị trí hiện tại của xe
         car_row = int(car.y) // CELL_SIZE
@@ -251,7 +356,7 @@ while True:
         current_position = (car_row, car_col)
 
         # Tạo lưới tạm thời để kiểm tra trạng thái hiện tại
-        temp_grid = [row[:] for row in grid]  # Sao chép lưới gốc
+        temp_grid = [row[:] for row in grid]
         for ped in pedestrian_sprites:
             ped_row = int(ped.rect.centery) // CELL_SIZE
             ped_col = int(ped.rect.centerx) // CELL_SIZE
@@ -273,36 +378,32 @@ while True:
         # Nếu vị trí thay đổi, đường đi bị chặn, không hợp lệ, hoặc cần cập nhật, tính lại đường đi
         if current_position != prev_car_position or path_blocked or path_invalid or path_needs_update:
             if user_goal_cell and isinstance(user_goal_cell, tuple) and len(user_goal_cell) == 2:
-                # Tìm đường đi mới trên lưới tạm thời
                 path = a_star(temp_grid, current_position, user_goal_cell)
-                if path:  # Nếu tìm thấy đường đi mới
+                if path:
                     prev_car_position = current_position
+                    car.target_index = 1  # Reset target index khi có path mới
                 else:
                     print("Hiện chưa tìm được đường đi hợp lý")
                     draw_text("Hiện chưa tìm được đường đi hợp lý", font, (255, 0, 0), SCREEN_WIDTH // 2 - 300, SCREEN_HEIGHT // 2)
-            else:
-                print("Lỗi: user_goal_cell không hợp lệ hoặc không tồn tại.")
 
-        # Cập nhật prev_temp_grid cho khung tiếp theo
+        # Cập nhật prev_temp_grid
         prev_temp_grid = [row[:] for row in temp_grid]
+
+        # Kiểm tra phím Space để di chuyển xe
         keys = pygame.key.get_pressed()
-        ACCEL, DECEL, FRICTION, TURN = 0.1, 0.05, 0.98, 2
-        if keys[pygame.K_UP]: car.speed += ACCEL
-        if keys[pygame.K_DOWN]: car.speed -= DECEL
-        car.speed *= FRICTION
-        if keys[pygame.K_LEFT]: car.angle += TURN * (car.speed / 5)
-        if keys[pygame.K_RIGHT]: car.angle -= TURN * (car.speed / 5)
+        space_pressed = keys[pygame.K_SPACE]
 
-        car.x -= car.speed * math.sin(math.radians(car.angle))
-        car.y -= car.speed * math.cos(math.radians(-car.angle))
+        # Di chuyển xe theo path khi nhấn Space
+        car.move_towards_path(path, pedestrian_sprites, space_pressed)
 
-        car.rect.topleft = (int(car.x), int(car.y))
+        # Kiểm tra va chạm với border
         for border in border_rects:
             if car.rect.colliderect(border):
                 car.x, car.y = Start_X, Start_Y
                 car.speed, car.angle = 0, 0
                 game_run = "col"
 
+        # Kiểm tra va chạm với xe khác
         for col_sprite in sprite_col:
             offset_x = col_sprite.rect.x - car.rect.x
             offset_y = col_sprite.rect.y - car.rect.y
@@ -311,6 +412,7 @@ while True:
                 car.speed, car.angle = 0, 0
                 game_run = "col"
 
+        # Kiểm tra va chạm với người đi bộ
         for ped in pedestrian_sprites:
             offset_x = ped.rect.x - car.rect.x
             offset_y = ped.rect.y - car.rect.y
@@ -319,15 +421,18 @@ while True:
                 car.speed, car.angle = 0, 0
                 game_run = "col"
 
+        # Kiểm tra tới đích
         if user_goal_rect and car.rect.colliderect(user_goal_rect):
             if user_goal_rect.contains(car.rect):
                 game_run = "finish"
 
+        # Vẽ màn hình
         screen.fill((0, 0, 0))
         sprite_group.draw(screen)
         sprite_col.draw(screen)
         car.draw()
 
+        # Sinh người đi bộ ngẫu nhiên
         current_time = pygame.time.get_ticks()
         if current_time - spawn_timer > next_spawn_interval and pedestrian_paths:
             spawn_random_pedestrian(pedestrian_paths)
@@ -346,9 +451,7 @@ while True:
                 curr_row, curr_col = path[i]
                 x = curr_col * CELL_SIZE + CELL_SIZE // 2
                 y = curr_row * CELL_SIZE + CELL_SIZE // 2
-                # Vẽ hình tròn màu đỏ tại vị trí đường dẫn
                 pygame.draw.circle(screen, (255, 0, 0), (x, y), 8)
-
 
         pygame.display.flip()
         clock.tick(60)
