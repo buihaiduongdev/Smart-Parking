@@ -4,13 +4,13 @@
   <export format="csv"/>
  </editorsettings>
  <tileset firstgid="1" name="Other" tilewidth="64" tileheight="64" tilecount="169" columns="13">
-  <image source="../../../source/repos/Smart-Parking/Spritesheets/Other.png" width="854" height="860"/>
+  <image source="Spritesheets/Other.png" width="854" height="860"/>
  </tileset>
- <tileset firstgid="170" source="../../../source/repos/Smart-Parking/objects.tsx"/>
- <tileset firstgid="218" source="../../../source/repos/Smart-Parking/tilemap_packed.tsx"/>
- <tileset firstgid="704" source="../../../source/repos/Smart-Parking/Other.tsx"/>
- <tileset firstgid="873" source="../../../source/repos/Smart-Parking/tilemap_packed_2.tsx"/>
- <tileset firstgid="1359" source="../../../source/repos/Smart-Parking/tilemap_packed_3.tsx"/>
+ <tileset firstgid="170" source="objects.tsx"/>
+ <tileset firstgid="218" source="tilemap_packed.tsx"/>
+ <tileset firstgid="704" source="Other.tsx"/>
+ <tileset firstgid="873" source="tilemap_packed_2.tsx"/>
+ <tileset firstgid="1359" source="tilemap_packed_3.tsx"/>
  <layer id="1" name="park" width="30" height="16">
   <data encoding="csv">
 3221225827,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225828,679,680,681,3221225830,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225825,
