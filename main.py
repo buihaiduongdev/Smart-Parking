@@ -99,7 +99,6 @@ class Car:
         self.width = width
         self.rect = pygame.Rect(self.x, self.y, height, width)
         self.surface = pygame.Surface((height, width), pygame.SRCALPHA)
-        # Đầu xe đã hướng lên, không cần xoay
         self.surface.blit(img, (0, 0))
         self.angle = 0  # Góc 0 hướng lên
         self.speed = 0
@@ -115,7 +114,7 @@ class Car:
             self.speed = max(self.speed - self.decel, 0)
             return
 
-        # Lấy tọa độ mục tiêu tiếp theo trong path
+        # Lấy tọa độ mục tiêu hiện tại trong path
         target_row, target_col = path[self.target_index]
         target_x = target_col * CELL_SIZE + CELL_SIZE // 2
         target_y = target_row * CELL_SIZE + CELL_SIZE // 2
@@ -125,19 +124,49 @@ class Car:
         dy = target_y - self.rect.centery
         distance = math.sqrt(dx**2 + dy**2)
 
-        if distance < 5:  # Chuyển sang điểm tiếp theo khi gần mục tiêu
-            self.target_index += 1
-            return
+        # Xác định hướng di chuyển hiện tại
+        if self.target_index > 0:
+            prev_row, prev_col = path[self.target_index - 1]
+            curr_row, curr_col = path[self.target_index]
+            dx_path = curr_col - prev_col  # Hướng theo trục x
+            dy_path = curr_row - prev_row  # Hướng theo trục y
+        else:
+            dx_path, dy_path = 0, 0  # Điểm đầu tiên, chưa có hướng trước đó
+
+        # Kiểm tra xem xe đã đến điểm giao nhau chưa (dựa trên tọa độ x hoặc y)
+        at_turning_point = False
+        if dx_path != 0:  # Đang di chuyển theo trục x
+            # Xe đến điểm giao nhau khi tọa độ x của xe gần bằng tọa độ x của điểm mục tiêu
+            at_turning_point = abs(self.rect.centerx - target_x) < 5
+        elif dy_path != 0:  # Đang di chuyển theo trục y
+            # Xe đến điểm giao nhau khi tọa độ y của xe gần bằng tọa độ y của điểm mục tiêu
+            at_turning_point = abs(self.rect.centery - target_y) < 5
+
+        # Kiểm tra xem đoạn path tiếp theo có phải là góc cua không
+        is_turning = False
+        if self.target_index + 1 < len(path):
+            next_row, next_col = path[self.target_index + 1]
+            dx_next = next_col - curr_col
+            dy_next = next_row - curr_row
+            # Nếu hướng thay đổi (tọa độ x hoặc y thay đổi so với đoạn trước), đó là góc cua
+            if (dx_path != 0 and dy_next != 0) or (dy_path != 0 and dx_next != 0):
+                is_turning = True
 
         # Tính góc mục tiêu (đầu xe hướng về path)
         target_angle = math.degrees(math.atan2(-dx, dy))
 
-        # Điều chỉnh góc mượt mà
-        angle_diff = (target_angle - self.angle) % 360
-        if angle_diff > 180:
-            angle_diff -= 360
-        turn_speed = min(max(angle_diff * 0.1, -3), 3)  # Tăng hệ số để rẽ nhanh hơn
-        self.angle += turn_speed
+        # Chỉ xoay đầu xe khi đến điểm giao nhau và đó là góc cua
+        if at_turning_point and is_turning:
+            angle_diff = (target_angle - self.angle) % 360
+            if angle_diff > 180:
+                angle_diff -= 360
+            turn_speed = min(max(angle_diff * 0.1, -3), 3)
+            self.angle += turn_speed
+
+        # Chuyển sang điểm tiếp theo khi đến điểm giao nhau
+        if at_turning_point:
+            self.target_index += 1
+            return
 
         # Chỉ di chuyển nếu nhấn Space
         if space_pressed:
@@ -155,57 +184,36 @@ class Car:
             else:
                 self.speed = max(self.speed - self.decel, 0)
 
-            # Xác định hướng di chuyển dựa trên path (chỉ di chuyển theo trục x hoặc y)
-            if self.target_index > 0:
-                prev_row, prev_col = path[self.target_index - 1]
-                curr_row, curr_col = path[self.target_index]
-                dx_path = curr_col - prev_col  # Hướng theo trục x
-                dy_path = curr_row - prev_row  # Hướng theo trục y
+            # Di chuyển theo trục x hoặc y
+            new_x = self.x
+            new_y = self.y
+            self.speed *= self.friction
 
-                # Chỉ di chuyển theo trục x hoặc y, không đi chéo
-                new_x = self.x
-                new_y = self.y
-                self.speed *= self.friction
-
-                if dx_path != 0:  # Di chuyển theo trục x (trái/phải)
-                    new_x = self.x + dx_path * self.speed
-                elif dy_path != 0:  # Di chuyển theo trục y (lên/xuống)
-                    new_y = self.y + dy_path * self.speed
-
-                # Kiểm tra va chạm trước khi cập nhật vị trí
-                temp_rect = self.rect.copy()
-                temp_rect.topleft = (int(new_x), int(new_y))
-                collision = False
-                for border in border_rects:
-                    if temp_rect.colliderect(border):
-                        collision = True
-                        break
-
-                if not collision:
-                    self.x, self.y = new_x, new_y
-                else:
-                    self.speed = 0
+            if dx_path != 0:  # Di chuyển theo trục x (trái/phải)
+                new_x = self.x + dx_path * self.speed
+            elif dy_path != 0:  # Di chuyển theo trục y (lên/xuống)
+                new_y = self.y + dy_path * self.speed
             else:
-                # Nếu là điểm đầu tiên, di chuyển theo hướng chuẩn hóa
+                # Điểm đầu tiên, di chuyển theo hướng chuẩn hóa
                 direction = pygame.math.Vector2(dx, dy).normalize() if distance > 0 else pygame.math.Vector2(0, 0)
-                self.speed *= self.friction
                 new_x = self.x + direction.x * self.speed
                 new_y = self.y + direction.y * self.speed
 
-                temp_rect = self.rect.copy()
-                temp_rect.topleft = (int(new_x), int(new_y))
-                collision = False
-                for border in border_rects:
-                    if temp_rect.colliderect(border):
-                        collision = True
-                        break
+            # Kiểm tra va chạm trước khi cập nhật vị trí
+            temp_rect = self.rect.copy()
+            temp_rect.topleft = (int(new_x), int(new_y))
+            collision = False
+            for border in border_rects:
+                if temp_rect.colliderect(border):
+                    collision = True
+                    break
 
-                if not collision:
-                    self.x, self.y = new_x, new_y
-                else:
-                    self.speed = 0
+            if not collision:
+                self.x, self.y = new_x, new_y
+            else:
+                self.speed = 0
         else:
-            self.speed = max(self.speed - self.decel, 0)  # Giảm tốc khi không nhấn Space
+            self.speed = max(self.speed - self.decel, 0)
 
         self.rect.topleft = (int(self.x), int(self.y))
         self.mask = pygame.mask.from_surface(pygame.transform.rotate(self.surface, self.angle))
@@ -216,7 +224,7 @@ class Car:
         surface_rect = self.surface.get_rect(topleft=self.rect.topleft)
         new_rect = rotated.get_rect(center=surface_rect.center)
         screen.blit(rotated, new_rect.topleft)
-
+        
 class Tile(pygame.sprite.Sprite):
     def __init__(self, pos, surf, groups):
         super().__init__(groups)
