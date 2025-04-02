@@ -11,7 +11,7 @@
  <tileset firstgid="704" source="Spritesheets/Other.tsx"/>
  <tileset firstgid="873" source="Spritesheets/tilemap_packed_2.tsx"/>
  <tileset firstgid="1359" source="Spritesheets/tilemap_packed_3.tsx"/>
- <tileset firstgid="1602" source="../../Documents/AI/Smart-Parking/Other.tsx"/>
+ <tileset firstgid="1602" source="Spritesheets/Other.tsx"/>
  <layer id="1" name="park" width="30" height="16">
   <data encoding="csv">
 3221225827,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225828,679,680,681,3221225830,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225829,3221225825,

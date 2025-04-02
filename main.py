@@ -111,121 +111,86 @@ class Car:
 
     def move_towards_path(self, path, pedestrian_sprites, space_pressed):
         if not path or len(path) <= self.target_index:
-            # No path or reached end of path
-            if self.speed > 0:
-                self.speed -= self.decel
-            else:
-                self.speed = 0
+            # Không có đường đi hoặc đã đến cuối đường
+            self.speed = 0
             return
 
-        # Only move when space is pressed
+        # Chỉ di chuyển khi nhấn phím space
         if not space_pressed:
-            if self.speed > 0:
-                self.speed -= self.decel
-            else:
-                self.speed = 0
+            self.speed = 0
             return
+        else:
+            # Tốc độ cố định khi nhấn space
+            self.speed = self.max_speed
 
-        # Get next target point
+        # Lấy điểm tiếp theo trên đường đi
         target_row, target_col = path[self.target_index]
         target_x = target_col * CELL_SIZE + CELL_SIZE // 2
         target_y = target_row * CELL_SIZE + CELL_SIZE // 2
         
-        # Calculate car's current center position
+        # Tính toán vị trí trung tâm hiện tại của xe
         car_center_x = self.x + self.width / 2
         car_center_y = self.y + self.height / 2
         
-        # Calculate direction to target
+        # Tính hướng đến mục tiêu
         dx = target_x - car_center_x
         dy = target_y - car_center_y
         
-        # Calculate angle to target (in degrees)
-        # In Pygame, 0 degrees points up, and increases clockwise
-        # Important fix: ensure we're calculating the correct angle for our car sprite orientation
-        target_angle = math.degrees(math.atan2(dy, dx)) + 90  # Adjusted angle calculation
+        # Tính góc mục tiêu - 0 độ là hướng lên
+        target_angle = (math.degrees(math.atan2(dy, dx)) + 90) % 360
         
-        # Normalize angle to range [-180, 180]
-        while target_angle > 180:
-            target_angle -= 360
-        while target_angle < -180:
-            target_angle += 360
+        # Chuẩn hóa góc hiện tại về 0-360
+        current_angle = self.angle % 360
         
-        # Calculate angle difference
-        angle_diff = target_angle - self.angle
+        # Xác định hướng quay ngắn nhất
+        angle_diff = (target_angle - current_angle + 180) % 360 - 180
         
-        # Normalize angle_diff to range [-180, 180]
-        if angle_diff > 180:
-            angle_diff -= 360
-        if angle_diff < -180:
-            angle_diff += 360
+        # Thiết lập tốc độ xoay cố định
+        rotation_speed = 3  # Có thể điều chỉnh tốc độ xoay tại đây
         
-        # Rotation speed
-        rotation_speed = 2.0
+        # Điều chỉnh góc dần dần với hướng xoay phù hợp
+        if abs(angle_diff) > 0.5:  # Ngưỡng nhỏ để đảm bảo độ chính xác
+            self.angle = (self.angle + angle_diff / abs(angle_diff) * rotation_speed) % 360
         
-        # Adjust angle
-        if abs(angle_diff) > 1:
-            if angle_diff > 0:
-                self.angle += min(rotation_speed, angle_diff)
-            else:
-                self.angle -= min(rotation_speed, -angle_diff)
-        
-        # Normalize car angle
-        while self.angle > 360:
-            self.angle -= 360
-        while self.angle < 0:
-            self.angle += 360
-        
-        # Calculate distance to target
+        # Tính khoảng cách đến mục tiêu
         distance = math.sqrt(dx**2 + dy**2)
         
-        # Calculate next position if car moves
-        # Fixed movement calculation - critical fix for direction issue
-        angle_rad = math.radians(self.angle - 90)  # Adjust angle for correct movement direction
-        next_x = self.x + self.speed * math.cos(angle_rad)
-        next_y = self.y + self.speed * math.sin(angle_rad)
+        # Tính vector di chuyển dựa trên hướng của xe
+        angle_rad = math.radians(self.angle - 90)  # Điều chỉnh cho hướng sprite
+        move_x = math.cos(angle_rad)
+        move_y = math.sin(angle_rad)
         
-        # Create temporary rect for next position
+        # Tính vị trí tiếp theo nếu xe di chuyển
+        next_x = self.x + self.speed * move_x
+        next_y = self.y + self.speed * move_y
+        
+        # Tạo rect tạm thời cho vị trí tiếp theo
         temp_rect = pygame.Rect(next_x, next_y, self.width, self.height)
         
-        # Check for collisions with pedestrians
+        # Kiểm tra va chạm với người đi bộ
         collision_detected = False
         for ped in pedestrian_sprites:
             if temp_rect.colliderect(ped.rect):
                 collision_detected = True
                 break
         
-        # Adjust speed based on angle difference
-        if abs(angle_diff) < 30:  # Only accelerate when angle is close
-            if not collision_detected:
-                self.speed += self.accel
-                if self.speed > self.max_speed:
-                    self.speed = self.max_speed
-            else:
-                # Slow down if collision detected
-                self.speed -= self.decel * 2
-                if self.speed < 0:
-                    self.speed = 0
-        else:
-            # Angle not correct, reduce speed
-            self.speed -= self.decel
-            if self.speed < 0:
-                self.speed = 0
+        # Chỉ di chuyển khi không có va chạm
+        if not collision_detected:
+            self.x += self.speed * move_x
+            self.y += self.speed * move_y
         
-        # Apply friction
-        self.speed *= self.friction
+        # Cập nhật collision mask
+        rotated = pygame.transform.rotate(self.surface, self.angle)
+        # Đảm bảo mask được căn giữa đúng
+        old_center = self.rect.center
+        self.rect = rotated.get_rect()
+        self.rect.center = old_center
+        self.mask = pygame.mask.from_surface(rotated)
         
-        # Move the car - with correct direction
-        angle_rad = math.radians(self.angle - 90)  # Key fix: adjust angle for correct movement
-        self.x += self.speed * math.cos(angle_rad)
-        self.y += self.speed * math.sin(angle_rad)
-        
-        # Update collision mask
-        self.mask = pygame.mask.from_surface(pygame.transform.rotate(self.surface, self.angle))
-        
-        # Check if reached target point
+        # Kiểm tra đã đến điểm mục tiêu chưa
         if distance < CELL_SIZE / 2:
             self.target_index += 1
-
+        
     def draw(self):
         self.rect.topleft = (int(self.x), int(self.y))
         rotated = pygame.transform.rotate(self.surface, self.angle)
