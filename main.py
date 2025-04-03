@@ -155,116 +155,139 @@ class Car:
              self.target_index = 0
 
 
+   # === INSIDE Car CLASS ===
+
     def move_towards_path(self, pedestrian_sprites, space_pressed):
         if not self.path or self.target_index >= len(self.path):
             self.speed = 0
+            # Update rotation/rect/mask even when stopped to maintain correct orientation if needed
+            self.surface = pygame.transform.rotate(self.original_surface, self.angle)
+            self.rect = self.surface.get_rect(center=(int(self.center_x), int(self.center_y)))
+            self.mask = pygame.mask.from_surface(self.surface)
             return # No path or end of path reached
 
         if not space_pressed:
             self.speed = 0
-            # Keep rotation logic active even when stopped? Optional.
-            # If stopped, maybe don't rotate either. For now, stop everything.
-            return
+             # Update rotation/rect/mask even when stopped
+            self.surface = pygame.transform.rotate(self.original_surface, self.angle)
+            self.rect = self.surface.get_rect(center=(int(self.center_x), int(self.center_y)))
+            self.mask = pygame.mask.from_surface(self.surface)
+            return # Not moving if space isn't pressed
         else:
-            # Apply acceleration or set fixed speed
-            # self.speed += self.accel
-            # self.speed = min(self.speed, self.max_speed) # Limit speed
-            self.speed = self.max_speed # Fixed speed when space is pressed
+            # Set fixed speed when space is pressed (can reintroduce accel later if needed)
+            current_max_speed = self.max_speed
 
         # Get the coordinates of the center of the target grid cell
         target_row, target_col = self.path[self.target_index]
         target_x = target_col * CELL_SIZE + CELL_SIZE // 2
         target_y = target_row * CELL_SIZE + CELL_SIZE // 2
 
-        # --- Rotation ---
+        # --- Rotation Calculation ---
         dx = target_x - self.center_x
         dy = target_y - self.center_y
         distance_to_target = math.hypot(dx, dy)
 
-        # Angle to target (math angle: 0=right, 90=up)
-        target_angle_rad = math.atan2(-dy, dx) # Use -dy because pygame's y is inverted
-        target_angle_deg = math.degrees(target_angle_rad)
+        angle_diff = 0.0
+        # Only calculate target angle if not already at the target
+        if distance_to_target > 1.0: # Avoid atan2(0,0) and spinning at destination
+            target_angle_rad = math.atan2(-dy, dx) # Math angle (0=right)
+            target_angle_deg = math.degrees(target_angle_rad)
+            desired_angle = (90 - target_angle_deg) % 360 # Convert to game angle (0=up)
 
-        # Convert target math angle to target game angle (0=up, 90=right)
-        # Game Angle = (90 - Math Angle) % 360
-        desired_angle = (90 - target_angle_deg) % 360
+            # Calculate the shortest angle difference (-180 to 180)
+            # Positive diff = CW turn needed, Negative diff = CCW turn needed
+            angle_diff = (desired_angle - self.angle + 180) % 360 - 180
 
-        # Calculate the shortest angle difference (-180 to 180)
-        angle_diff = (desired_angle - self.angle + 180) % 360 - 180
+        # --- Rotation Application ---
+        # Define a small tolerance where we consider the car aligned
+        alignment_tolerance = 1.0
+        if abs(angle_diff) > alignment_tolerance:
+            direction = 1 if angle_diff > 0 else -1 # +1 CW, -1 CCW
+            # Apply rotation speed, but don't rotate more than needed in one step
+            rotation_magnitude = min(self.rotation_speed, abs(angle_diff))
+            self.angle = (self.angle + direction * rotation_magnitude) % 360
+        # else:
+            # Optional: Snap angle if very close? Might prevent tiny drifts.
+            # self.angle = desired_angle # Be careful, might cause jitter if desired_angle fluctuates
 
-        # Rotate towards the desired angle
-        rotation_amount = 0
-        if abs(angle_diff) > 1.0: # Only rotate if significant difference
-            direction = 1 if angle_diff > 0 else -1
-            rotation_amount = direction * min(self.rotation_speed, abs(angle_diff))
-            self.angle = (self.angle + rotation_amount) % 360
-            actual_speed = 0 # Stop forward movement while rotating significantly
+        # --- Speed Adjustment Based on Turn Severity ---
+        # Reduce speed based on how much the car *still needs to turn* (angle_diff)
+        # Define a threshold angle beyond which speed starts reducing
+        turn_slowdown_threshold = 15.0 # Start slowing if angle diff > 15 degrees
+        max_angle_diff_for_speed = 90.0 # Assume speed is minimum (or zero) for 90+ degree turns
+
+        if abs(angle_diff) <= turn_slowdown_threshold:
+            # Mostly aligned, use full speed
+            actual_speed = current_max_speed
         else:
-            # If angle is close enough, snap to desired angle (optional, but can prevent jitter)
-            # self.angle = desired_angle
-            actual_speed = self.speed # Move forward only when facing the right direction
+            # Reduce speed proportionally for sharper turns
+            # Calculate factor (0.0 to 1.0) based on how far angle_diff is beyond the threshold
+            excess_angle = abs(angle_diff) - turn_slowdown_threshold
+            range_angle = max(1.0, max_angle_diff_for_speed - turn_slowdown_threshold) # Avoid division by zero
+            reduction_factor = max(0.0, 1.0 - (excess_angle / range_angle))
+            actual_speed = current_max_speed * reduction_factor
+            # Ensure speed is not negative
+            actual_speed = max(0.0, actual_speed)
+
+            # --- Alternative Simpler Slowdown: ---
+            # If angle diff > threshold, move at a fixed reduced speed, e.g., half speed
+            # actual_speed = current_max_speed * 0.5
+            # --- Or Stop Completely (Original method): ---
+            # actual_speed = 0.0
 
         # --- Movement ---
-        # Convert current game angle (0=up) to math angle (0=right) for trig
-        # math_angle_rad = math.radians(90 - self.angle)
-        # Simpler: use the already calculated target angle if aligned, or current if rotating?
-        # Let's use the current self.angle for movement calculation.
-        move_angle_rad = math.radians(90 - self.angle)
+        if actual_speed > 0.01: # Only move if speed is significant
+            move_angle_rad = math.radians(90 - self.angle) # Convert game angle (0=Up) to math radian
+            move_x = math.cos(move_angle_rad) * actual_speed
+            move_y = -math.sin(move_angle_rad) * actual_speed # Pygame Y is inverted
 
-        move_x = math.cos(move_angle_rad) * actual_speed
-        move_y = -math.sin(move_angle_rad) * actual_speed # Minus because pygame y is down
+            next_center_x = self.center_x + move_x
+            next_center_y = self.center_y + move_y
 
-        # Calculate next potential position
-        next_center_x = self.center_x + move_x
-        next_center_y = self.center_y + move_y
+            # --- Collision Check (Before Moving) ---
+            # Create temporary rect/mask at the *next* position with the *current* angle
+            temp_rotated_surface = pygame.transform.rotate(self.original_surface, self.angle)
+            temp_rect = temp_rotated_surface.get_rect(center=(next_center_x, next_center_y))
+            temp_mask = pygame.mask.from_surface(temp_rotated_surface)
 
-        # --- Collision Check (Before Moving) ---
-        # Create a temporary rotated surface/rect/mask at the *next* position
-        temp_rotated_surface = pygame.transform.rotate(self.original_surface, self.angle)
-        temp_rect = temp_rotated_surface.get_rect(center=(next_center_x, next_center_y))
-        temp_mask = pygame.mask.from_surface(temp_rotated_surface)
+            collision_detected = False
+            for ped in pedestrian_sprites:
+                # Broad phase check first
+                if temp_rect.colliderect(ped.rect):
+                    # Narrow phase (mask check)
+                    offset_x = ped.rect.x - temp_rect.x
+                    offset_y = ped.rect.y - temp_rect.y
+                    if temp_mask.overlap(ped.mask, (offset_x, offset_y)):
+                        collision_detected = True
+                        break
+            # Add checks for static obstacles/borders if needed here
 
-        collision_detected = False
-        for ped in pedestrian_sprites:
-            if temp_rect.colliderect(ped.rect): # Quick check
-                offset_x = ped.rect.x - temp_rect.x
-                offset_y = ped.rect.y - temp_rect.y
-                if temp_mask.overlap(ped.mask, (offset_x, offset_y)): # Precise check
-                    collision_detected = True
-                    break
+            # --- Update Position ---
+            if not collision_detected:
+                self.center_x = next_center_x
+                self.center_y = next_center_y
+            else:
+                # Stop car if collision is predicted
+                self.speed = 0 # Affects speed next frame if space is held
+                actual_speed = 0 # Stop movement this frame
 
-        # --- Update Position ---
-        if not collision_detected:
-            self.center_x = next_center_x
-            self.center_y = next_center_y
-        else:
-            self.speed = 0 # Stop if collision is imminent
-
-        # --- Update final rotation/rect/mask for drawing and next frame ---
-        # Rotate the original surface by the final angle for this frame
-        self.surface = pygame.transform.rotate(self.original_surface, self.angle)
-        # Get the bounding rect and center it correctly
+        # --- Update Surface, Rect, Mask (Always update based on final angle and position) ---
+        self.surface = pygame.transform.rotate(self.original_surface, -self.angle)
         self.rect = self.surface.get_rect(center=(int(self.center_x), int(self.center_y)))
-        # Update the mask based on the final rotated surface
         self.mask = pygame.mask.from_surface(self.surface)
 
         # --- Check Target Arrival ---
-        # Re-calculate distance to the current target point
+        # Re-calculate distance to the current target point using the *updated* position
         final_dx = target_x - self.center_x
         final_dy = target_y - self.center_y
         final_distance_to_target = math.hypot(final_dx, final_dy)
 
-        # Threshold for reaching a waypoint (e.g., half the car's speed or a fraction of cell size)
-        arrival_threshold = max(self.max_speed, CELL_SIZE / 4.0)
-        if final_distance_to_target < arrival_threshold:
-            self.target_index += 1
-            # Optional: Snap to target? Helps prevent overshoot issues.
-            # self.center_x = target_x
-            # self.center_y = target_y
-            # Recalculate rect/mask if snapped
-            # self.rect = self.surface.get_rect(center=(int(self.center_x), int(self.center_y)))
-            # self.mask = pygame.mask.from_surface(self.surface)
-
+        # Use a threshold based on movement speed to avoid overshooting
+        arrival_threshold = max(actual_speed * 1.5, CELL_SIZE / 4.0) # Adjust multiplier as needed
+        # Prevent index error if path is short or already finished
+        if self.target_index < len(self.path):
+            if final_distance_to_target < arrival_threshold:
+                self.target_index += 1
 
     def draw(self, target_surface):
         # Blit the already rotated surface (self.surface) at its calculated rect position
