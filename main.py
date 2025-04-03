@@ -136,24 +136,37 @@ class Car:
         dx = target_x - car_center_x
         dy = target_y - car_center_y
         
-        # Tính góc mục tiêu - 0 độ là hướng lên
-        target_angle = (math.degrees(math.atan2(dy, dx)) + 90) % 360
+        # Xác định góc mới dựa trên hướng di chuyển
+        # 0 độ: hướng lên, 90 độ: hướng phải, 180 độ: hướng xuống, 270 độ: hướng trái
+        if abs(dx) > abs(dy):  # Di chuyển ngang nhiều hơn dọc
+            if dx > 0:  # Di chuyển sang phải
+                target_angle = 90  # Hướng sang phải
+            else:  # Di chuyển sang trái
+                target_angle = 270  # Hướng sang trái
+        else:  # Di chuyển dọc nhiều hơn ngang
+            if dy > 0:  # Di chuyển xuống
+                target_angle = 180  # Hướng xuống
+            else:  # Di chuyển lên
+                target_angle = 0  # Hướng lên
         
         # Chuẩn hóa góc hiện tại về 0-360
         current_angle = self.angle % 360
         
-        # Xác định hướng quay ngắn nhất
-        angle_diff = (target_angle - current_angle + 180) % 360 - 180
+        # Xác định hướng quay ngắn nhất (theo hoặc ngược chiều kim đồng hồ)
+        # Tính độ chênh lệch giữa góc hiện tại và góc mục tiêu
+        angle_diff = (target_angle - current_angle) % 360
         
-        # Thiết lập tốc độ xoay cố định
-        rotation_speed = 3  # Có thể điều chỉnh tốc độ xoay tại đây
+        # Nếu góc > 180 độ, quay ngược chiều kim đồng hồ sẽ nhanh hơn
+        if angle_diff > 180:
+            angle_diff -= 360
         
-        # Điều chỉnh góc dần dần với hướng xoay phù hợp
+        # Thiết lập tốc độ xoay
+        rotation_speed = 3
+        
+        # Thực hiện xoay
         if abs(angle_diff) > 0.5:  # Ngưỡng nhỏ để đảm bảo độ chính xác
-            self.angle = (self.angle + angle_diff / abs(angle_diff) * rotation_speed) % 360
-        
-        # Tính khoảng cách đến mục tiêu
-        distance = math.sqrt(dx**2 + dy**2)
+            rotation = min(abs(angle_diff), rotation_speed) * (1 if angle_diff > 0 else -1)
+            self.angle = (self.angle + rotation) % 360
         
         # Tính vector di chuyển dựa trên hướng của xe
         angle_rad = math.radians(self.angle - 90)  # Điều chỉnh cho hướng sprite
@@ -188,6 +201,7 @@ class Car:
         self.mask = pygame.mask.from_surface(rotated)
         
         # Kiểm tra đã đến điểm mục tiêu chưa
+        distance = math.sqrt(dx**2 + dy**2)
         if distance < CELL_SIZE / 2:
             self.target_index += 1
         
