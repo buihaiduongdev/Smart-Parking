@@ -7,7 +7,6 @@ import time # For performance timing independent of Pygame ticks if needed
 import statistics # For calculating averages
 
 # Import local modules
-from pathfinding_algorithms import a_star, heuristic # Import from the new file
 from pytmx.util_pygame import load_pygame
 import Button
 # from PIL import Image # No longer needed directly here
@@ -57,6 +56,7 @@ if not RUN_HEADLESS:
     pygame.display.set_caption("Car Simulation Comparison")
 clock = pygame.time.Clock()
 FPS = 60 # Target FPS for simulation steps
+
 
 # === Asset Loading ===
 # Load images only once
@@ -385,7 +385,12 @@ def get_pathfinding_function(algo_name):
     if algo_name == "a_star":
         # Import dynamically if needed, or rely on global import
         # from pathfinding_algorithms import a_star
+        from pathfinding_algorithms import a_star, heuristic # Import from the new file
         return a_star
+    
+    elif algo_name == "bfs":
+        from pathfinding_algorithms import bfs # Import hàm bfs
+        return bfs
     # Add other algorithms here:
     # elif algo_name == "dijkstra":
     #     from pathfinding_algorithms import dijkstra

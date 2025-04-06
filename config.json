@@ -1,8 +1,10 @@
 {
   "algorithms_to_run": [
-    "a_star"
+    "a_star",
+    "bfs"
+
   ],
-  "num_runs_per_algorithm": 10,
+  "num_runs_per_algorithm": 3,
   "simulation_speed_factor": 3.0,
   "run_headless": false,
   "max_run_time_ms": 60000,

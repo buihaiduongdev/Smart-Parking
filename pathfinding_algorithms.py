@@ -1,5 +1,6 @@
 # pathfinding_algorithms.py
 import heapq
+from collections import deque # Import deque cho hàng đợi BFS
 import pygame # Needed for pygame.time.get_ticks()
 
 # === A* Pathfinding ===
@@ -74,3 +75,55 @@ def a_star(grid, start, goal, timeout_ms=200):
 
     print(f"A* could not find a path from {start} to {goal}")
     return None # No path found
+
+# === Breadth-First Search (BFS) ===
+def bfs(grid, start, goal, timeout_ms=500): # Tăng timeout một chút cho BFS nếu cần
+    """
+    Finds the shortest path (in number of steps) using BFS.
+
+    Args:
+        grid: A 2D list representing the map (0=walkable, 1=obstacle).
+        start: A tuple (row, col) for the starting cell.
+        goal: A tuple (row, col) for the destination cell.
+        timeout_ms: Maximum time allowed for the search.
+
+    Returns:
+        A list of (row, col) tuples representing the path from the cell
+        *after* the start cell up to and including the goal cell,
+        or None if no path is found or times out.
+    """
+    rows, cols = len(grid), len(grid[0])
+    queue = deque([(start, [start])]) # Hàng đợi chứa (node, path_tới_node)
+    visited = {start} # Set để lưu các ô đã thăm
+    start_time = pygame.time.get_ticks()
+
+    while queue:
+        # Timeout check
+        if pygame.time.get_ticks() - start_time > timeout_ms:
+            print(f"BFS search timed out ({timeout_ms}ms)")
+            return None
+
+        (current_node, path) = queue.popleft() # Lấy từ đầu hàng đợi (FIFO)
+
+        if current_node == goal:
+            # Trả về đường đi, bỏ qua điểm start ban đầu
+            return path[1:]
+
+        # Khám phá các hàng xóm (Neighbors)
+        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]: # NESW
+            nx, ny = current_node[0] + dx, current_node[1] + dy
+
+            neighbor = (nx, ny)
+
+            # Kiểm tra biên, vật cản và ô đã thăm
+            if 0 <= nx < rows and 0 <= ny < cols and \
+               grid[nx][ny] == 0 and \
+               neighbor not in visited:
+
+                visited.add(neighbor)
+                new_path = list(path) # Tạo bản sao của path cũ
+                new_path.append(neighbor) # Thêm hàng xóm vào path mới
+                queue.append((neighbor, new_path)) # Thêm vào cuối hàng đợi
+
+    print(f"BFS could not find a path from {start} to {goal}")
+    return None # Không tìm thấy đường đi
