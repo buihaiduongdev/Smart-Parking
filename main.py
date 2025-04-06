@@ -188,7 +188,11 @@ class Car:
         self.path = []
         self.target_index = 0
         self.collision_flag = False # Flag to indicate collision this frame
-
+     # ---> THÊM CÁC THUỘC TÍNH NÀY <---
+        self.is_stopped = True # Giả sử ban đầu là đứng yên
+        self.stopped_since = pygame.time.get_ticks() # Thời điểm bắt đầu dừng (khởi tạo là thời điểm hiện tại)
+        self.STOPPED_THRESHOLD = 0.1 # Ngưỡng tốc độ coi là dừng (pixel/frame)
+        # ---> KẾT THÚC PHẦN THÊM <---
     def set_path(self, new_path):
         # (Keep your set_path method)
         if new_path and len(new_path) > 0:
@@ -255,8 +259,23 @@ class Car:
             reduction_factor = max(0.0, 1.0 - (excess_angle / range_angle))
             actual_speed = current_max_speed * reduction_factor
             actual_speed = max(0.0, actual_speed) # Ensure non-negative
-
+        # ---> THÊM CẬP NHẬT TRẠNG THÁI DỪNG <---
+        now = pygame.time.get_ticks()
+        if actual_speed < self.STOPPED_THRESHOLD:
+            # Xe đang dừng hoặc gần như dừng
+            if not self.is_stopped:
+                # Nếu xe vừa mới dừng lại ở frame này
+                self.is_stopped = True
+                self.stopped_since = now # Ghi lại thời điểm bắt đầu dừng
+        else:
+            # Xe đang di chuyển
+            if self.is_stopped:
+                 # Nếu xe vừa bắt đầu di chuyển lại
+                 self.is_stopped = False
+                 self.stopped_since = 0 # Reset thời điểm dừng
+        # ---> KẾT THÚC CẬP NHẬT TRẠNG THÁI DỪNG <---
         # --- Movement ---
+
         self.speed = actual_speed # Update internal speed state
         if self.speed > 0.01:
             move_angle_rad = math.radians(90 - self.angle) # Correct for Pygame angle
@@ -308,7 +327,7 @@ class Tile(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(topleft=pos)
 
 class Pedestrian(pygame.sprite.Sprite):
-    def __init__(self, x, y, surface, path_points, speed=PEDES_SPEED, speed_factor=1.0):
+    def __init__(self, x, y, surface, path_points, speed=1, speed_factor=1.0):
         super().__init__()
         self.image = surface
         self.rect = self.image.get_rect(center=(x, y))
@@ -442,7 +461,7 @@ def spawn_random_pedestrian(paths, pedestrian_group, speed_factor):
 
         start_x, start_y = start_point
         image = random.choice(pedestrian_images)
-        base_ped_speed = random.uniform(0.8, 1.5) # Base speed variation
+        base_ped_speed = PEDES_SPEED # Base speed variation
         # ---> THÊM DÒNG NÀY <---
         print(f"  DEBUG spawn_random_pedestrian: Chuẩn bị thêm Pedestrian tại ({start_x:.0f}, {start_y:.0f})")
         # ---> KẾT THÚC <---
@@ -642,17 +661,19 @@ for algo_name in ALGORITHMS_TO_RUN:
         # --- Single Run Loop ---
         while simulation_running:
             current_time_ms = pygame.time.get_ticks()
-            delta_time = clock.tick(FPS) / 1000.0 # Time since last frame in seconds (less critical in headless)
+            delta_time = clock.tick(FPS) / 1000.0 # Time since last frame in seconds
 
-            # Check for timeout
+            # 1. Check for Timeout
+            # ====================
             run_time_ms = current_time_ms - run_start_time_ms
             if run_time_ms > MAX_RUN_TIME_MS:
                 print("   Run timed out.")
                 run_status = "timeout"
                 simulation_running = False
-                continue # Exit loop
+                continue # Go to end of loop check
 
-            # Handle Quit Event (even in headless)
+            # 2. Handle Events
+            # =================
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     print("Quit event received. Shutting down.")
@@ -660,178 +681,192 @@ for algo_name in ALGORITHMS_TO_RUN:
                     pygame.quit()
                     sys.exit()
 
-            # --- Updates ---
-            # Pedestrian Spawning
-            if current_time_ms - spawn_timer > next_spawn_interval and pedestrian_paths:
-                 spawn_random_pedestrian(pedestrian_paths, pedestrian_sprites, SIM_SPEED_FACTOR)
-                 spawn_timer = current_time_ms
-                 next_spawn_interval = random.randint(MIN_TIME_PEDES_SPAWN, MAX_TIME_PEDES_SPAWN)
-            # Pedestrian Spawning
+            # 3. Pedestrian Spawning
+            # =======================
             time_since_last_spawn = current_time_ms - spawn_timer
             should_spawn_time = time_since_last_spawn > next_spawn_interval
-            # Lấy trạng thái MỚI NHẤT của các biến
             paths_exist = bool(pedestrian_paths)
             images_exist = bool(pedestrian_images)
             can_spawn_more = len(pedestrian_sprites) < MAX_PEDESTRIANS
 
-            # ---> ĐẢM BẢO BẠN CÓ DÒNG PRINT NÀY <---
-            # In ra trạng thái kiểm tra chi tiết MỖI KHI đến thời điểm spawn tiềm năng
-            if should_spawn_time: # Chỉ in khi đến lúc cần kiểm tra spawn
+            # Debug print for spawn check
+            if should_spawn_time:
                  print(f"DEBUG SPAWN CHECK @ {current_time_ms}ms: TimeOK={should_spawn_time}, PathsOK={paths_exist}, ImagesOK={images_exist}, SpaceOK={can_spawn_more}, NextInterval={next_spawn_interval}ms")
-            # ---> KẾT THÚC <---
-
 
             if should_spawn_time and paths_exist and images_exist and can_spawn_more:
-                 print(f"DEBUG: Đang gọi spawn_random_pedestrian (Time: {current_time_ms}ms, Current Peds: {len(pedestrian_sprites)})")
+                 print(f"DEBUG: Calling spawn_random_pedestrian (Time: {current_time_ms}ms, Current Peds: {len(pedestrian_sprites)})")
                  spawn_random_pedestrian(pedestrian_paths, pedestrian_sprites, SIM_SPEED_FACTOR)
-                 spawn_timer = current_time_ms # Reset timer SAU KHI gọi spawn
+                 spawn_timer = current_time_ms # Reset timer AFTER successful spawn call
                  next_spawn_interval = random.randint(MIN_TIME_PEDES_SPAWN, MAX_TIME_PEDES_SPAWN)
-                 print(f"DEBUG: Timer reset. Next spawn interval: {next_spawn_interval}ms") # Thêm dòng này
+                 print(f"DEBUG: Timer reset. Next spawn interval: {next_spawn_interval}ms")
 
-            # Pedestrian Movement
+            # 4. Pedestrian Movement
+            # =====================
             pedestrian_sprites.update()
 
-            # Pathfinding Logic
-            dynamic_obstacle_check = check_pedestrian_on_path(current_path_cells, pedestrian_sprites, CELL_SIZE)
-            
-            if user_goal_cell and (recalculation_needed or dynamic_obstacle_check) \
-               and current_time_ms - last_path_recalc_time > RECALC_COOLDOWN:
+            # 5. Pathfinding Logic (Recalculation if needed)
+            # ==============================================
+            # Check if car is stuck
+            STUCK_TIMEOUT_MS = 2000 # 2 giây
+            is_stuck = False
+            if car.is_stopped and car.stopped_since > 0:
+                time_stopped = current_time_ms - car.stopped_since
+                if time_stopped > STUCK_TIMEOUT_MS:
+                    is_stuck = True
+                    # print(f"   Car stuck for {time_stopped:.0f}ms.") # Debug print moved inside if block below
 
-                 # print("   Recalculating path...") # Can be noisy
-                 temp_grid = [row[:] for row in base_grid] # Start with base obstacles
-                 for ped in pedestrian_sprites: # Add dynamic obstacles
-                     ped_col = ped.rect.centerx // CELL_SIZE
-                     ped_row = ped.rect.centery // CELL_SIZE
-                     if 0 <= ped_row < grid_rows and 0 <= ped_col < grid_cols:
-                          temp_grid[ped_row][ped_col] = 1 # Mark as blocked
+            # Determine if recalculation is needed
+            should_recalculate = (recalculation_needed  # Explicit request
+                                  or is_stuck             # Car is stuck
+                                  or (user_goal_cell and not car.path)) # Has goal but no path
 
-                 car_col = int(car.center_x) // CELL_SIZE
-                 car_row = int(car.center_y) // CELL_SIZE
-                 start_cell = (car_row, car_col)
+            # Check if cooldown period has passed
+            can_recalculate_now = current_time_ms - last_path_recalc_time > RECALC_COOLDOWN
 
-                 path_found = False
-                 if 0 <= start_cell[0] < grid_rows and 0 <= start_cell[1] < grid_cols:
-                     if temp_grid[start_cell[0]][start_cell[1]] == 0: # Ensure start is valid
-                         new_path = pathfinding_func(temp_grid, start_cell, user_goal_cell) # Use selected algo
-                         if new_path:
-                             # Path found includes goal, might include start or first step
-                             # Let's assume it includes the goal. What about start?
-                             # If A* returns path *from* start's neighbor, use as is.
-                             # If A* returns path *including* start, slice it: new_path[1:]
-                             # Assuming A* returns path TO goal, starting from first step or start itself
-                             current_path_cells = new_path
-                             car.set_path(current_path_cells)
-                             # print(f"   Path found: {len(current_path_cells)} steps.") # Noisy
-                             path_found = True
-                             run_path_length = len(current_path_cells) # Store initial length
-                         # else: print("   No path found by algorithm.")
-                     # else: print("   Car start cell is blocked.")
+            # Perform recalculation if all conditions met
+            if user_goal_cell and should_recalculate and can_recalculate_now:
+                print("   Recalculating path (Trigger: Need={}, Stuck={}, NoPath={})".format(recalculation_needed, is_stuck, not car.path))
 
-                 if not path_found:
-                     car.set_path([]) # Clear path if failed
+                # Create temporary grid with current obstacles
+                temp_grid = [row[:] for row in base_grid]
+                for ped in pedestrian_sprites:
+                    ped_col = ped.rect.centerx // CELL_SIZE
+                    ped_row = ped.rect.centery // CELL_SIZE
+                    if 0 <= ped_row < grid_rows and 0 <= ped_col < grid_cols:
+                        temp_grid[ped_row][ped_col] = 1
+
+                # Get car's current grid position
+                car_col = int(car.center_x) // CELL_SIZE
+                car_row = int(car.center_y) // CELL_SIZE
+                start_cell = (car_row, car_col)
+
+                path_found = False # Reset flag
+
+                # Check if start cell is valid before calling A*
+                if 0 <= start_cell[0] < grid_rows and 0 <= start_cell[1] < grid_cols:
+                    if temp_grid[start_cell[0]][start_cell[1]] == 0: # Check if blocked in temp_grid
+                        print(f"   Running A* from {start_cell} to {user_goal_cell}")
+                        new_path = pathfinding_func(temp_grid, start_cell, user_goal_cell)
+                        if new_path:
+                            print(f"   Path found by A*: Length={len(new_path)}")
+                            current_path_cells = new_path
+                            car.set_path(current_path_cells)
+                            path_found = True
+                            run_path_length = len(current_path_cells) # Optional: update path length metric
+                        else:
+                            print("   No path found by A* (possibly blocked).")
+                            # Clear path if A* fails
+                            car.set_path([])
+                            current_path_cells = []
+                    else:
+                        print(f"   Cannot calculate path: Car start cell {start_cell} is blocked in temp_grid.")
+                        car.set_path([])
+                        current_path_cells = []
+                else:
+                     print(f"   Cannot calculate path: Car start cell {start_cell} is outside grid bounds.")
+                     car.set_path([])
                      current_path_cells = []
-                     # Decide if this is a run failure? Maybe only if it persists?
-                     # For now, let car stop and potentially retry pathfinding later
 
-                 recalculation_needed = False # Reset flag
-                 last_path_recalc_time = current_time_ms
+                # Reset stuck timer AFTER attempting recalculation, regardless of success
+                if is_stuck:
+                    car.stopped_since = current_time_ms
 
+                recalculation_needed = False # Reset explicit request flag
+                last_path_recalc_time = current_time_ms # Update last recalc time
 
-            # Car Movement (Always assume "space_pressed" for simulation)
+            # 6. Car Movement
+            # ================
+            # Car updates its own 'is_stopped' and 'stopped_since' internally
             car.move_towards_path(pedestrian_sprites, True)
 
-            # --- Collision Checks (After Movement) ---
+            # 7. Collision Checks
+            # ====================
             collision_this_frame = False
-            # 1. Borders
+            # Check Borders
             for border in border_rects:
                 if car.rect.colliderect(border):
-                    # print("   Collision with border!") # Debug
                     collision_this_frame = True
                     break
-            # 2. Static Obstacles (sprite_col)
+            # Check Static Obstacles
             if not collision_this_frame:
-                # Use mask collision for accuracy
                 collided_statics = pygame.sprite.spritecollide(car, sprite_col, False, pygame.sprite.collide_mask)
                 if collided_statics:
-                    # print(f"   Collision with static obstacle!") # Debug
                     collision_this_frame = True
-            # 3. Pedestrians
+            # Check Pedestrians
             if not collision_this_frame:
                  collided_peds = pygame.sprite.spritecollide(car, pedestrian_sprites, False, pygame.sprite.collide_mask)
                  if collided_peds:
-                      # print(f"   Collision with pedestrian!") # Debug
-                      collision_this_frame = True
+                     collision_this_frame = True
 
+            # Handle Collision Result
             if collision_this_frame:
                 print("   Collision detected.")
                 run_status = "collision"
                 simulation_running = False
-                # continue
+                continue # Go to end of loop check
 
-              # --- Check Goal Arrival --- (SỬA LẦN 2 - Ưu tiên kiểm tra hoàn thành path)
-            # Đầu tiên, kiểm tra xem vòng lặp còn nên chạy không (chưa bị va chạm dừng)
-            if not simulation_running:
-                pass # Nếu đã dừng (do va chạm), bỏ qua kiểm tra đích
+            # 8. Goal Arrival Check
+            # =====================
+            # Check only if simulation is still running (no collision occurred)
+            if simulation_running:
+                # Check if car has logically finished its path
+                if car.path and car.target_index >= len(car.path):
+                    is_goal_cell_occupied = False
+                    if user_goal_cell:
+                        goal_row, goal_col = user_goal_cell
+                        for ped in pedestrian_sprites:
+                            ped_col = ped.rect.centerx // CELL_SIZE
+                            ped_row = ped.rect.centery // CELL_SIZE
+                            if ped_row == goal_row and ped_col == goal_col:
+                                is_goal_cell_occupied = True
+                                print(f"   Goal cell {user_goal_cell} blocked by pedestrian. Waiting...")
+                                break
 
-            # TIẾP THEO: Ưu tiên kiểm tra xem logic đường đi đã hoàn thành chưa
-            # Chỉ cần target_index đạt hoặc vượt qua index cuối cùng LÀ ĐỦ.
-            elif car.path and car.target_index >= len(car.path): # Kiểm tra >= len(path) thay vì len(path) - 1
-                 # Nếu không có path HOẶC target_index đã hoàn thành (ví dụ: 18 >= 18)
-                 # Kiểm tra thêm xem xe có đang ở *gần* ô đích không (dùng collidepoint hoặc colliderect như một xác nhận phụ)
-                 # Điều này giúp tránh trường hợp path rất ngắn và index tăng vọt ngay lập tức.
-                 is_physically_near_goal = False
-                 if user_goal_rect and user_goal_rect.collidepoint(car.center_x, car.center_y):
-                      is_physically_near_goal = True
-                 # HOẶC có thể dùng colliderect để kiểm tra xem hình chữ nhật xe có chạm ô đích không:
-                 # elif user_goal_rect and car.rect.colliderect(user_goal_rect):
-                 #    is_physically_near_goal = True
+                    if is_goal_cell_occupied:
+                        # Goal blocked, clear path to trigger recalculation later when it's free
+                        car.set_path([])
+                        current_path_cells = []
+                        # Keep simulation_running = True
+                    else:
+                        # Path finished AND goal cell is clear! Success!
+                        print(f"   Goal reached! (Path index {car.target_index} >= Length {len(car.path)} AND Goal cell clear)")
+                        run_status = "success"
+                        simulation_running = False
+                        # No continue needed, loop will terminate
 
-                 # Chỉ kích hoạt thành công nếu path đã xong THEO INDEX VÀ xe đang ở trong/chạm ô đích
-                 # -> Sửa lại: Chỉ cần path index xong là đủ!
-                 # Bỏ is_physically_near_goal nếu gây vấn đề như trên.
-                 # Chỉ cần:
-                 if True: # Luôn đúng nếu đã vào nhánh elif này
-                    print(f"   Goal reached! (Path index {car.target_index} >= Length {len(car.path)})")
-                    run_status = "success"
-                    simulation_running = False
-
-            # Không cần kiểm tra collidepoint riêng lẻ nữa nếu đã ưu tiên path index.
-            # Kết thúc kiểm tra đến đích
-            # Kết thúc kiểm tra đến đích
-
-            # --- Drawing (if not headless) ---
+            # 9. Drawing
+            # ===========
             if not RUN_HEADLESS and screen:
                 screen.fill((100, 100, 100))
-                sprite_group.draw(screen) # Draw map and static cars
+                sprite_group.draw(screen) # Draw map tiles and static obstacles
 
                 # Draw goal marker
                 if user_goal_rect:
-                    # Draw slightly transparent rect
                     s = pygame.Surface((CELL_SIZE, CELL_SIZE), pygame.SRCALPHA)
-                    s.fill((0, 255, 0, 100)) # Target fill: Green, semi-transparent
+                    s.fill((0, 255, 0, 100))
                     screen.blit(s, user_goal_rect.topleft)
-                    pygame.draw.rect(screen, (255, 255, 255), user_goal_rect, 1) # White border
+                    pygame.draw.rect(screen, (255, 255, 255), user_goal_rect, 1)
 
-                # Draw A* path (optional debug)
-                # if current_path_cells:
-                #     for i, (r, c) in enumerate(current_path_cells):
-                #         x = c * CELL_SIZE + CELL_SIZE // 2
-                #         y = r * CELL_SIZE + CELL_SIZE // 2
-                #         color = (255, 0, 0) if i >= car.target_index else (255, 150, 150)
-                #         pygame.draw.circle(screen, color, (x, y), 3)
+                # Draw pedestrians
                 pedestrian_sprites.draw(screen)
+                # Draw car
                 car.draw(screen)
-                # Draw run info
+                # Draw run info text
                 draw_text(f"Algo: {algo_name}", font, TEXT_COL, 10, 10, screen)
                 draw_text(f"Run: {run_index + 1}/{NUM_RUNS}", font, TEXT_COL, 10, 50, screen)
                 draw_text(f"Time: {run_time_ms/1000:.1f}s", font, TEXT_COL, 10, 90, screen)
                 draw_text(f"Status: {run_status}", font, TEXT_COL, 10, 130, screen)
+                # Optional: Draw car path debug
+                # if current_path_cells: ...
 
                 pygame.display.flip()
 
-        
+            # End of main simulation loop (while simulation_running:)
+            # Loop condition (simulation_running) will be checked next iteration
+
         # --- End of Single Run Loop ---
-        # Record the result of this run
+        # (Code to record results for this run remains the same)
+        # ...
         current_algo_run_results.append({
             "status": run_status,
             "time_ms": run_time_ms if run_status == "success" else None,
