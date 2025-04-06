@@ -1,0 +1,41 @@
+{
+    "a_star": {
+        "total_runs": 10,
+        "successful_runs": 9,
+        "collisions": 1,
+        "timeouts": 0,
+        "path_failures": 0,
+        "completion_times_ms": [
+            2079,
+            4059,
+            3897,
+            3769,
+            3667,
+            1896,
+            903,
+            3009,
+            3224
+        ],
+        "path_lengths": [
+            13,
+            3,
+            4,
+            19,
+            20,
+            11,
+            6,
+            15,
+            18
+        ],
+        "time_min_ms": 903,
+        "time_max_ms": 4059,
+        "time_avg_ms": 2944.777777777778,
+        "path_len_min": 3,
+        "path_len_max": 20,
+        "path_len_avg": 12.11111111111111,
+        "collision_rate": 0.1,
+        "timeout_rate": 0.0,
+        "path_failure_rate": 0.0,
+        "success_rate": 0.9
+    }
+}

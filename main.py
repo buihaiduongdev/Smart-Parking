@@ -1,183 +1,227 @@
-import pygame, math, sys, random, heapq
+import pygame
+import math
+import sys
+import random
+import json # For config and results
+import time # For performance timing independent of Pygame ticks if needed
+import statistics # For calculating averages
+
+# Import local modules
+from pathfinding_algorithms import a_star, heuristic # Import from the new file
 from pytmx.util_pygame import load_pygame
 import Button
-from PIL import Image
-# Khởi tạo Pygame
+# from PIL import Image # No longer needed directly here
+
+# Initialize Pygame
 pygame.init()
 
+# === Configuration Loading ===
+CONFIG_FILE = "config.json"
+try:
+    with open(CONFIG_FILE, 'r') as f:
+        config = json.load(f)
+    ALGORITHMS_TO_RUN = config.get("algorithms_to_run", ["a_star"])
+    NUM_RUNS = config.get("num_runs_per_algorithm", 5)
+    SIM_SPEED_FACTOR = config.get("simulation_speed_factor", 1.0)
+    RUN_HEADLESS = config.get("run_headless", False)
+    MAX_RUN_TIME_MS = config.get("max_run_time_ms", 60000)
+    RESULTS_FILE = config.get("results_output_file", "simulation_results.json")
+    MAX_PEDESTRIANS = config.get("max_pedestrians", 5) # Lấy từ config, mặc định là 5 nếu thiếu
+    MIN_TIME_PEDES_SPAWN = config.get("min_pedestrian_spawn_interval_ms", 1000) # Mặc định 6000ms
+    MAX_TIME_PEDES_SPAWN = config.get("max_pedestrian_spawn_interval_ms", 2000) # Mặc định 12000ms
+    PEDES_SPEED = config.get("pedestrian_speed", 1) # Mặc định 1
+    print("--- Configuration ---")
+    print(f"Algorithms: {ALGORITHMS_TO_RUN}")
+    print(f"Runs per Algo: {NUM_RUNS}")
+    print(f"Speed Factor: {SIM_SPEED_FACTOR}")
+    print(f"Headless: {RUN_HEADLESS}")
+    print(f"Max Run Time: {MAX_RUN_TIME_MS} ms")
+    print(f"Results File: {RESULTS_FILE}")
+    print("---------------------")
+except FileNotFoundError:
+    print(f"Error: Config file '{CONFIG_FILE}' not found. Exiting.")
+    sys.exit()
+except json.JSONDecodeError:
+    print(f"Error: Config file '{CONFIG_FILE}' is not valid JSON. Exiting.")
+    sys.exit()
+except Exception as e:
+    print(f"Error loading config: {e}. Exiting.")
+    sys.exit()
 
-
-# === Cấu hình ===
+# === Constants & Screen Setup ===
 CELL_SIZE = 64
 SCREEN_WIDTH, SCREEN_HEIGHT = 1920, 1080
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Car Game")
+screen = None # Initialize screen later if not headless
+if not RUN_HEADLESS:
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    pygame.display.set_caption("Car Simulation Comparison")
 clock = pygame.time.Clock()
+FPS = 60 # Target FPS for simulation steps
 
-# === Tải hình ảnh ===
-# Load the car image ONCE here
+# === Asset Loading ===
+# Load images only once
 try:
     car_img_original = pygame.image.load("./PNG/App/car7.png").convert_alpha()
-    CAR_WIDTH, CAR_HEIGHT = car_img_original.get_size() # Get actual dimensions
+    CAR_WIDTH, CAR_HEIGHT = car_img_original.get_size()
     print(f"Loaded car image: Width={CAR_WIDTH}, Height={CAR_HEIGHT}")
 except pygame.error as e:
     print(f"Error loading car image: {e}")
-    # Provide default dimensions or exit
-    CAR_WIDTH, CAR_HEIGHT = 43, 74 # Default guess if loading fails
+    CAR_WIDTH, CAR_HEIGHT = 43, 74
     car_img_original = pygame.Surface((CAR_WIDTH, CAR_HEIGHT), pygame.SRCALPHA)
-    car_img_original.fill((255, 165, 0)) # Orange placeholder
+    car_img_original.fill((255, 165, 0))
 
-play_img = pygame.image.load("PNG/App/PlayButton.png")
-emptyBtnImg = pygame.image.load("PNG/App/SmallEmptyButton.png")
-pedestrian_images = [
-    pygame.image.load("./PNG/Other/Person_BlueBlack1.png").convert_alpha(),
-    pygame.image.load("./PNG/Other/Person_RedBlack1.png").convert_alpha(),
-    pygame.image.load("./PNG/Other/Person_YellowBrown2.png").convert_alpha(),
-    pygame.image.load("./PNG/Other/Person_RedBlond1.png").convert_alpha(),
-    pygame.image.load("./PNG/Other/Person_PurpleBrown1.png").convert_alpha(),
-    pygame.image.load("./PNG/Other/Person_OrangeBrown1.png").convert_alpha(),
-    pygame.image.load("./PNG/Other/Person_GreenBlack2.png").convert_alpha(),
-]
-# === UI ===
-font = pygame.font.SysFont("calibri", 72)
+# Load other images if needed (buttons are only needed if not headless)
+play_img = None
+emptyBtnImg = None
+font = None
 TEXT_COL = (255, 255, 255)
-button_width, button_height = play_img.get_size()
-button_x = (SCREEN_WIDTH - button_width) // 2
-button_y = (SCREEN_HEIGHT - button_height) // 2
-playBtn = Button.Button(button_x, button_y, play_img, 0.4)
-emptyBtn = Button.Button(button_x, button_y + 100, emptyBtnImg, 0.4)
+playBtn = None
+emptyBtn = None
+if not RUN_HEADLESS:
+    try:
+        play_img = pygame.image.load("PNG/App/PlayButton.png")
+        emptyBtnImg = pygame.image.load("PNG/App/SmallEmptyButton.png")
+        button_width, button_height = play_img.get_size()
+        button_x = (SCREEN_WIDTH - button_width) // 2
+        button_y = (SCREEN_HEIGHT - button_height) // 2
+        playBtn = Button.Button(button_x, button_y, play_img, 0.4) # Assuming Button class exists
+        emptyBtn = Button.Button(button_x, button_y + 100, emptyBtnImg, 0.4)
+        font = pygame.font.SysFont("calibri", 48) # Smaller font maybe
+    except pygame.error as e:
+        print(f"Warning: Error loading button/font assets: {e}")
+    except NameError:
+         print(f"Warning: Button class not found. UI disabled.")
 
 
-def draw_text(text, font, color, x, y):
-    img = font.render(text, True, color)
-    screen.blit(img, (x, y))
+pedestrian_images = []
+try:
+    pedestrian_images = [
+        pygame.image.load("./PNG/Other/Person_BlueBlack1.png").convert_alpha(),
+        pygame.image.load("./PNG/Other/Person_RedBlack1.png").convert_alpha(),
+        pygame.image.load("./PNG/Other/Person_YellowBrown2.png").convert_alpha(),
+        pygame.image.load("./PNG/Other/Person_RedBlond1.png").convert_alpha(),
+        pygame.image.load("./PNG/Other/Person_PurpleBrown1.png").convert_alpha(),
+        pygame.image.load("./PNG/Other/Person_OrangeBrown1.png").convert_alpha(),
+        pygame.image.load("./PNG/Other/Person_GreenBlack2.png").convert_alpha(),
+    ]
+except pygame.error as e:
+    print(f"Warning: Error loading pedestrian images: {e}")
 
-# === A* Pathfinding ===
-# (A* functions remain the same)
+# === Map Loading and Grid Creation ===
+try:
+    tmx_data = load_pygame("map.tmx")
+except FileNotFoundError:
+    print("Error: map.tmx not found. Exiting.")
+    sys.exit()
+except Exception as e:
+    print(f"Error loading map: {e}. Exiting.")
+    sys.exit()
+
+base_grid = None # Will be created by function
+grid_rows, grid_cols = 0, 0
+
 def create_grid_from_map(tmx_data, cell_size):
+    # (Keep your existing create_grid_from_map function here)
+    # ... (same as your original code) ...
+    global grid_rows, grid_cols # Store dimensions globally
     width = tmx_data.width * tmx_data.tilewidth
     height = tmx_data.height * tmx_data.tileheight
     grid_cols = width // cell_size
     grid_rows = height // cell_size
     grid = [[0 for _ in range(grid_cols)] for _ in range(grid_rows)]
+    static_obstacle_rects = [] # Store rects of static obstacles
+
+    for layer in tmx_data.visible_layers:
+        if hasattr(layer, 'data'): # Tile layers
+             pass # Grid based on objects now
 
     for obj in tmx_data.objects:
-        # Đánh dấu các vùng không thể đi qua, bao gồm cả viền trắng (Border)
-        if obj.name in ['Border', 'RandomCar'] or obj.type == 'Border':
-            left = int(obj.x) // cell_size
-            top = int(obj.y) // cell_size
-            right = int((obj.x + obj.width) // cell_size)
-            bottom = int((obj.y + obj.height) // cell_size)
-            # Iterate one cell beyond the boundary for safety if needed, but +1 seems sufficient
-            for row in range(top, bottom + 1):
-                for col in range(left, right + 1):
+        obj_rect = pygame.Rect(obj.x, obj.y, obj.width, obj.height)
+        left = int(obj.x) // cell_size
+        top = int(obj.y) // cell_size
+        # Use ceil for right/bottom to ensure full coverage
+        right = math.ceil((obj.x + obj.width) / cell_size)
+        bottom = math.ceil((obj.y + obj.height) / cell_size)
+
+        is_obstacle_type = obj.name in ['Border', 'RandomCar'] or obj.type == 'Border'
+
+        if is_obstacle_type:
+            # Mark grid cells as obstacles
+            for row in range(top, bottom):
+                for col in range(left, right):
                     if 0 <= row < grid_rows and 0 <= col < grid_cols:
                         grid[row][col] = 1 # Mark as obstacle
-    return grid
+            if obj.name == 'RandomCar':
+                 static_obstacle_rects.append(obj_rect)
 
 
-def heuristic(a, b):
-    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+    return grid, static_obstacle_rects
 
-def a_star(grid, start, goal):
-    rows, cols = len(grid), len(grid[0])
-    open_set = []
-    heapq.heappush(open_set, (0 + heuristic(start, goal), 0, start, []))
-    visited = set()
-    start_time = pygame.time.get_ticks() # Add timeout
-    TIMEOUT = 200 # milliseconds
 
-    while open_set:
-        # Timeout check
-        if pygame.time.get_ticks() - start_time > TIMEOUT:
-            print("A* search timed out")
-            return None
+# Build the base grid and get static obstacle rects ONCE
+base_grid, static_obstacle_rects = create_grid_from_map(tmx_data, CELL_SIZE)
+if not base_grid:
+    print("Error: Failed to create grid from map. Exiting.")
+    sys.exit()
 
-        est_cost, cost, current, path = heapq.heappop(open_set)
 
-        if current == goal:
-            return path + [current] # Return the full path including goal
+# === Classes (Car, Tile, Pedestrian) ===
+# (Keep your Car, Tile, Pedestrian classes here)
+# !!! IMPORTANT: Modify Car and Pedestrian to use SIM_SPEED_FACTOR !!!
 
-        if current in visited:
-            continue
-        visited.add(current)
-
-        # Explore neighbors (Up, Down, Left, Right)
-        for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]: # Check order if needed
-            nx, ny = current[0] + dx, current[1] + dy
-
-            if 0 <= nx < rows and 0 <= ny < cols and grid[nx][ny] == 0: # Check bounds and obstacle
-                if (nx, ny) not in visited:
-                    new_cost = cost + 1
-                    priority = new_cost + heuristic((nx, ny), goal)
-                    heapq.heappush(open_set, (priority, new_cost, (nx, ny), path + [current])) # Add current to path history
-
-    print(f"A* could not find a path from {start} to {goal}")
-    return None # No path found
-
-# === Classes ===
 class Car:
-    # Pass center x, y and the already loaded original image
-    def __init__(self, center_x, center_y, original_image):
+    def __init__(self, center_x, center_y, original_image, speed_factor=1.0):
         self.center_x = float(center_x)
         self.center_y = float(center_y)
-
-        # Store the original image (used for rotation)
         self.original_surface = original_image
-        # This surface will hold the currently rotated image
         self.surface = self.original_surface
-        # The rect represents the bounding box of the *rotated* surface, centered correctly
         self.rect = self.surface.get_rect(center=(self.center_x, self.center_y))
-        # The mask is based on the *rotated* surface
         self.mask = pygame.mask.from_surface(self.surface)
-
-        self.angle = 0.0  # Angle 0 points UP (consistent with movement logic)
+        self.angle = 0.0
         self.speed = 0.0
-        self.max_speed = 2.0 # Pixels per frame
-        self.accel = 0.05
-        self.decel = 0.03 # Not currently used with fixed speed on spacebar
-        self.friction = 0.98 # Not currently used
-        self.rotation_speed = 4.0 # Degrees per frame
-
+        # Apply speed factor
+        self.max_speed = 2.0 * speed_factor
+        self.accel = 0.05 # * speed_factor # Acceleration not used with spacebar holding
+        self.decel = 0.03 # * speed_factor
+        self.friction = 0.98
+        self.rotation_speed = 4.0 # Rotation speed might also need scaling depending on max_speed
         self.path = []
-        self.target_index = 0 # Start by targeting the first point in the path
+        self.target_index = 0
+        self.collision_flag = False # Flag to indicate collision this frame
 
     def set_path(self, new_path):
-        """Sets a new path for the car."""
+        # (Keep your set_path method)
         if new_path and len(new_path) > 0:
              self.path = new_path
-             # Start targeting the first point (index 0) if path is just start,
-             # or index 1 if path includes start cell. A* usually returns path from start+1.
-             # Let's assume path from A* does NOT include the start cell itself.
-             self.target_index = 0
+             self.target_index = 0 # Always start from the first point of the new path
         else:
              self.path = []
              self.target_index = 0
 
-
-   # === INSIDE Car CLASS ===
-
     def move_towards_path(self, pedestrian_sprites, space_pressed):
+        # (Keep your move_towards_path method)
+        # Reset collision flag at the start of movement
+        self.collision_flag = False
+
         if not self.path or self.target_index >= len(self.path):
             self.speed = 0
-            # Update rotation/rect/mask even when stopped to maintain correct orientation if needed
-            self.surface = pygame.transform.rotate(self.original_surface, self.angle)
+            # Update visual state even when stopped
+            self.surface = pygame.transform.rotate(self.original_surface, -self.angle) # Use -angle for pygame rotation
             self.rect = self.surface.get_rect(center=(int(self.center_x), int(self.center_y)))
             self.mask = pygame.mask.from_surface(self.surface)
             return # No path or end of path reached
 
-        if not space_pressed:
-            self.speed = 0
-             # Update rotation/rect/mask even when stopped
-            self.surface = pygame.transform.rotate(self.original_surface, self.angle)
-            self.rect = self.surface.get_rect(center=(int(self.center_x), int(self.center_y)))
-            self.mask = pygame.mask.from_surface(self.surface)
-            return # Not moving if space isn't pressed
+        # --- Determine Speed ---
+        if not space_pressed: # In simulation, we might always want it "pressed"
+             # For simulation, let's assume car always tries to move if it has a path
+             # self.speed = 0 # Keep this if you want manual space control during visual runs
+             # return
+             # OR: Always try to move at max speed (adjust later based on turns)
+             current_max_speed = self.max_speed
         else:
-            # Set fixed speed when space is pressed (can reintroduce accel later if needed)
-            current_max_speed = self.max_speed
+             current_max_speed = self.max_speed
 
-        # Get the coordinates of the center of the target grid cell
+        # Get target world coordinates
         target_row, target_col = self.path[self.target_index]
         target_x = target_col * CELL_SIZE + CELL_SIZE // 2
         target_y = target_row * CELL_SIZE + CELL_SIZE // 2
@@ -186,181 +230,171 @@ class Car:
         dx = target_x - self.center_x
         dy = target_y - self.center_y
         distance_to_target = math.hypot(dx, dy)
-
         angle_diff = 0.0
-        # Only calculate target angle if not already at the target
-        if distance_to_target > 1.0: # Avoid atan2(0,0) and spinning at destination
-            target_angle_rad = math.atan2(-dy, dx) # Math angle (0=right)
+        if distance_to_target > 1.0:
+            target_angle_rad = math.atan2(-dy, dx) # Math angle
             target_angle_deg = math.degrees(target_angle_rad)
-            desired_angle = (90 - target_angle_deg) % 360 # Convert to game angle (0=up)
-
-            # Calculate the shortest angle difference (-180 to 180)
-            # Positive diff = CW turn needed, Negative diff = CCW turn needed
+            desired_angle = (90 - target_angle_deg) % 360 # Pygame angle (0=up)
             angle_diff = (desired_angle - self.angle + 180) % 360 - 180
 
         # --- Rotation Application ---
-        # Define a small tolerance where we consider the car aligned
         alignment_tolerance = 1.0
         if abs(angle_diff) > alignment_tolerance:
-            direction = 1 if angle_diff > 0 else -1 # +1 CW, -1 CCW
-            # Apply rotation speed, but don't rotate more than needed in one step
+            direction = 1 if angle_diff > 0 else -1
             rotation_magnitude = min(self.rotation_speed, abs(angle_diff))
             self.angle = (self.angle + direction * rotation_magnitude) % 360
-        # else:
-            # Optional: Snap angle if very close? Might prevent tiny drifts.
-            # self.angle = desired_angle # Be careful, might cause jitter if desired_angle fluctuates
 
-        # --- Speed Adjustment Based on Turn Severity ---
-        # Reduce speed based on how much the car *still needs to turn* (angle_diff)
-        # Define a threshold angle beyond which speed starts reducing
-        turn_slowdown_threshold = 15.0 # Start slowing if angle diff > 15 degrees
-        max_angle_diff_for_speed = 90.0 # Assume speed is minimum (or zero) for 90+ degree turns
-
+        # --- Speed Adjustment Based on Turn ---
+        turn_slowdown_threshold = 15.0
+        max_angle_diff_for_speed = 90.0
         if abs(angle_diff) <= turn_slowdown_threshold:
-            # Mostly aligned, use full speed
             actual_speed = current_max_speed
         else:
-            # Reduce speed proportionally for sharper turns
-            # Calculate factor (0.0 to 1.0) based on how far angle_diff is beyond the threshold
             excess_angle = abs(angle_diff) - turn_slowdown_threshold
-            range_angle = max(1.0, max_angle_diff_for_speed - turn_slowdown_threshold) # Avoid division by zero
+            range_angle = max(1.0, max_angle_diff_for_speed - turn_slowdown_threshold)
             reduction_factor = max(0.0, 1.0 - (excess_angle / range_angle))
             actual_speed = current_max_speed * reduction_factor
-            # Ensure speed is not negative
-            actual_speed = max(0.0, actual_speed)
-
-            # --- Alternative Simpler Slowdown: ---
-            # If angle diff > threshold, move at a fixed reduced speed, e.g., half speed
-            # actual_speed = current_max_speed * 0.5
-            # --- Or Stop Completely (Original method): ---
-            # actual_speed = 0.0
+            actual_speed = max(0.0, actual_speed) # Ensure non-negative
 
         # --- Movement ---
-        if actual_speed > 0.01: # Only move if speed is significant
-            move_angle_rad = math.radians(90 - self.angle) # Convert game angle (0=Up) to math radian
-            move_x = math.cos(move_angle_rad) * actual_speed
-            move_y = -math.sin(move_angle_rad) * actual_speed # Pygame Y is inverted
+        self.speed = actual_speed # Update internal speed state
+        if self.speed > 0.01:
+            move_angle_rad = math.radians(90 - self.angle) # Correct for Pygame angle
+            move_x = math.cos(move_angle_rad) * self.speed
+            move_y = -math.sin(move_angle_rad) * self.speed
 
             next_center_x = self.center_x + move_x
             next_center_y = self.center_y + move_y
 
-            # --- Collision Check (Before Moving) ---
-            # Create temporary rect/mask at the *next* position with the *current* angle
-            temp_rotated_surface = pygame.transform.rotate(self.original_surface, self.angle)
-            temp_rect = temp_rotated_surface.get_rect(center=(next_center_x, next_center_y))
-            temp_mask = pygame.mask.from_surface(temp_rotated_surface)
-
-            collision_detected = False
-            for ped in pedestrian_sprites:
-                # Broad phase check first
-                if temp_rect.colliderect(ped.rect):
-                    # Narrow phase (mask check)
-                    offset_x = ped.rect.x - temp_rect.x
-                    offset_y = ped.rect.y - temp_rect.y
-                    if temp_mask.overlap(ped.mask, (offset_x, offset_y)):
-                        collision_detected = True
-                        break
-            # Add checks for static obstacles/borders if needed here
+            # --- Collision Check (Simplified for now - more robust check happens externally) ---
+            # Basic check before moving to prevent moving *into* an immediate obstacle
+            # More advanced check needed for predicting collision along the move vector
+            # For now, external check after move is primary
 
             # --- Update Position ---
-            if not collision_detected:
-                self.center_x = next_center_x
-                self.center_y = next_center_y
-            else:
-                # Stop car if collision is predicted
-                self.speed = 0 # Affects speed next frame if space is held
-                actual_speed = 0 # Stop movement this frame
+            self.center_x = next_center_x
+            self.center_y = next_center_y
 
-        # --- Update Surface, Rect, Mask (Always update based on final angle and position) ---
-        self.surface = pygame.transform.rotate(self.original_surface, -self.angle)
+        # --- Update Visuals ---
+        self.surface = pygame.transform.rotate(self.original_surface, -self.angle) # Pygame uses counter-clockwise rotation
         self.rect = self.surface.get_rect(center=(int(self.center_x), int(self.center_y)))
         self.mask = pygame.mask.from_surface(self.surface)
 
         # --- Check Target Arrival ---
-        # Re-calculate distance to the current target point using the *updated* position
         final_dx = target_x - self.center_x
         final_dy = target_y - self.center_y
         final_distance_to_target = math.hypot(final_dx, final_dy)
+        #arrival_threshold = max(self.speed * 1.5, CELL_SIZE / 4.0)
+        arrival_threshold = CELL_SIZE * 0.6 # Simpler threshold based on cell size
 
-        # Use a threshold based on movement speed to avoid overshooting
-        arrival_threshold = max(actual_speed * 1.5, CELL_SIZE / 4.0) # Adjust multiplier as needed
-        # Prevent index error if path is short or already finished
-        if self.target_index < len(self.path):
+        if self.target_index < len(self.path): # Check index validity
             if final_distance_to_target < arrival_threshold:
-                self.target_index += 1
+                 self.target_index += 1
+
 
     def draw(self, target_surface):
-        # Blit the already rotated surface (self.surface) at its calculated rect position
+        # (Keep your draw method)
         target_surface.blit(self.surface, self.rect.topleft)
-        # --- Debug Drawing (Optional) ---
-        # Draw center point
+        # Optional Debug Drawing (if not RUN_HEADLESS)
         # pygame.draw.circle(target_surface, (0, 255, 0), self.rect.center, 3)
-        # Draw bounding box
         # pygame.draw.rect(target_surface, (255, 0, 0), self.rect, 1)
-        # Draw path target
-        # if self.path and self.target_index < len(self.path):
-        #     target_row, target_col = self.path[self.target_index]
-        #     target_x = target_col * CELL_SIZE + CELL_SIZE // 2
-        #     target_y = target_row * CELL_SIZE + CELL_SIZE // 2
-        #     pygame.draw.circle(target_surface, (0, 0, 255), (target_x, target_y), 5)
 
 
 class Tile(pygame.sprite.Sprite):
+    # (Keep your Tile class)
     def __init__(self, pos, surf, groups):
         super().__init__(groups)
         self.image = surf
         self.rect = self.image.get_rect(topleft=pos)
 
 class Pedestrian(pygame.sprite.Sprite):
-    def __init__(self, x, y, surface, path_points, speed=1):
+    def __init__(self, x, y, surface, path_points, speed=PEDES_SPEED, speed_factor=1.0):
         super().__init__()
         self.image = surface
-        self.rect = self.image.get_rect(center=(x, y)) # Use center for consistency
-        self.x = float(x) # Store precise position
+        self.rect = self.image.get_rect(center=(x, y))
+        self.x = float(x)
         self.y = float(y)
-        self.speed = speed
+        # Apply speed factor
+        self.base_speed = speed
+        self.speed = self.base_speed * speed_factor
         self.path_points = path_points
-        self.target_point_index = 0 # Start targeting the first point
+        self.target_point_index = 0
         self.mask = pygame.mask.from_surface(self.image)
-        if not self.path_points: # Handle empty path
+        if not self.path_points:
              self.kill()
 
-
     def update(self):
+        # (Keep your update method, ensures speed is used correctly)
         if self.target_point_index >= len(self.path_points):
-             self.kill() # Remove if path is finished
-             return
+            self.kill()
+            return
 
         target_x, target_y = self.path_points[self.target_point_index]
         dx = target_x - self.x
         dy = target_y - self.y
         distance = math.hypot(dx, dy)
 
-        if distance < self.speed * 1.5: # If close to the target point
-            self.target_point_index += 1 # Move to the next point
+        # Use a slightly larger threshold involving speed to prevent stuttering
+        arrival_threshold = self.speed * 1.5
+        if distance < arrival_threshold:
+            self.target_point_index += 1
             if self.target_point_index >= len(self.path_points):
-                 self.kill() # End of path
-                 return
-             # Update target for the same frame to avoid stopping
+                self.kill()
+                return
+            # Update target immediately
             target_x, target_y = self.path_points[self.target_point_index]
             dx = target_x - self.x
             dy = target_y - self.y
-            distance = math.hypot(dx, dy) # Recalculate distance
+            distance = math.hypot(dx, dy) # Recalculate
 
-
-        if distance > 0: # Avoid division by zero
-            # Normalize direction vector
+        if distance > 0:
             dir_x = dx / distance
             dir_y = dy / distance
-            # Move
             self.x += dir_x * self.speed
             self.y += dir_y * self.speed
-            # Update rect position (center)
             self.rect.center = (int(self.x), int(self.y))
 
 
+# === Helper Functions ===
+def draw_text(text, font_obj, color, x, y, surface):
+    if font_obj and surface:
+        img = font_obj.render(text, True, color)
+        surface.blit(img, (x, y))
+
+def get_pathfinding_function(algo_name):
+    """Maps algorithm name string to the actual function."""
+    if algo_name == "a_star":
+        # Import dynamically if needed, or rely on global import
+        # from pathfinding_algorithms import a_star
+        return a_star
+    # Add other algorithms here:
+    # elif algo_name == "dijkstra":
+    #     from pathfinding_algorithms import dijkstra
+    #     return dijkstra
+    else:
+        print(f"Warning: Pathfinding algorithm '{algo_name}' not found.")
+        return None
+
+def find_random_valid_goal(grid, grid_rows, grid_cols, start_cell):
+    """Finds a random walkable cell, avoiding the start cell."""
+    attempts = 0
+    max_attempts = grid_rows * grid_cols # Limit attempts
+    while attempts < max_attempts:
+        rand_row = random.randint(0, grid_rows - 1)
+        rand_col = random.randint(0, grid_cols - 1)
+        goal_cell = (rand_row, rand_col)
+
+        # Check if walkable and not the start cell
+        if grid[rand_row][rand_col] == 0 and goal_cell != start_cell:
+             # Optional: Add check against static_obstacle_rects if needed,
+             # but grid should already represent them.
+             return goal_cell
+        attempts += 1
+    print("Warning: Could not find a random valid goal after many attempts.")
+    return None # Indicate failure
+
 def check_pedestrian_on_path(path_cells, pedestrian_group, cell_size):
-    """Checks if any pedestrian is currently in any cell of the given path."""
+    # (Keep your check_pedestrian_on_path function)
     if not path_cells:
         return False
     pedestrian_occupied_cells = set()
@@ -371,305 +405,461 @@ def check_pedestrian_on_path(path_cells, pedestrian_group, cell_size):
 
     for cell in path_cells:
         if cell in pedestrian_occupied_cells:
-            return True # Collision detected
+            return True # Collision detected on path
     return False
 
 
-MAX_PEDESTRIANS = 5  # Giới hạn số lượng người đi bộ
-
-def spawn_random_pedestrian(paths, pedestrian_group):
+def spawn_random_pedestrian(paths, pedestrian_group, speed_factor):
+    # ---> THÊM DÒNG NÀY <---
+    print(f"  DEBUG spawn_random_pedestrian: Hàm được gọi. Current Peds: {len(pedestrian_group)}/{MAX_PEDESTRIANS}")
+    # ---> KẾT THÚC <---
+    # (Keep your spawn_random_pedestrian function, but pass speed_factor)
     if len(pedestrian_group) >= MAX_PEDESTRIANS:
+        # ---> THÊM DÒNG NÀY <---
+        print("  DEBUG spawn_random_pedestrian: Thoát - Đã đạt MAX.")
+         # ---> KẾT THÚC <--
         return
-    if not paths:
+    if not paths or not pedestrian_images: # Check if images loaded
+        # ---> THÊM DÒNG NÀY <---
+        print(f"  DEBUG spawn_random_pedestrian: Thoát - Paths rỗng ({not paths}) hoặc Images rỗng ({not pedestrian_images}).")
+         # ---> KẾT THÚC <---
         return
 
-    chosen_path_points = random.choice(paths)
-    if not chosen_path_points: return # Skip if path is empty
+    try: # Thêm try-except để bắt lỗi random.choice
+        chosen_path_points = random.choice(paths)
+        if not chosen_path_points or len(chosen_path_points) < 2:
+             # ---> THÊM DÒNG NÀY <---
+            print("  DEBUG spawn_random_pedestrian: Thoát - Path được chọn không hợp lệ (rỗng hoặc chỉ có 1 điểm).")
+             # ---> KẾT THÚC <---
+            return
 
-    # Decide direction (start to end, or end to start)
-    if random.choice([True, False]):
-        start_point = chosen_path_points[0]
-        path_to_follow = chosen_path_points
-    else:
-        start_point = chosen_path_points[-1]
-        path_to_follow = chosen_path_points[::-1] # Reverse path
+        if random.choice([True, False]):
+            start_point = chosen_path_points[0]
+            path_to_follow = chosen_path_points
+        else:
+            start_point = chosen_path_points[-1]
+            path_to_follow = chosen_path_points[::-1]
 
-    start_x, start_y = start_point
-    image = random.choice(pedestrian_images)
+        start_x, start_y = start_point
+        image = random.choice(pedestrian_images)
+        base_ped_speed = random.uniform(0.8, 1.5) # Base speed variation
+        # ---> THÊM DÒNG NÀY <---
+        print(f"  DEBUG spawn_random_pedestrian: Chuẩn bị thêm Pedestrian tại ({start_x:.0f}, {start_y:.0f})")
+        # ---> KẾT THÚC <---
+        pedestrian = Pedestrian(start_x, start_y, image, path_to_follow, speed=base_ped_speed, speed_factor=speed_factor)
+        pedestrian_group.add(pedestrian)
+    # ---> THÊM DÒNG NÀY <---
+        print(f"  DEBUG spawn_random_pedestrian: Đã thêm thành công! New count: {len(pedestrian_group)}")
+        # ---> KẾT THÚC <---
 
-    # Check if spawn point is too close to car? (Optional)
+    except IndexError as e:
+            print(f"  ERROR in spawn_random_pedestrian: Lỗi khi chọn ngẫu nhiên (paths hoặc images có thể rỗng?): {e}")
+    except Exception as e:
+            print(f"  ERROR in spawn_random_pedestrian: Lỗi không xác định: {e}")
 
-    pedestrian = Pedestrian(start_x, start_y, image, path_to_follow)
-    pedestrian_group.add(pedestrian)
+def process_simulation_results(results_list):
+    """Calculates summary statistics from a list of run results."""
+    summary = {
+        "total_runs": len(results_list),
+        "successful_runs": 0,
+        "collisions": 0,
+        "timeouts": 0,
+        "path_failures": 0,
+        "completion_times_ms": [],
+        "path_lengths": [],
+        "time_min_ms": None,
+        "time_max_ms": None,
+        "time_avg_ms": None,
+        "path_len_min": None,
+        "path_len_max": None,
+        "path_len_avg": None,
+        "collision_rate": 0.0,
+        "timeout_rate": 0.0,
+        "path_failure_rate": 0.0,
+        "success_rate": 0.0,
+    }
+
+    for result in results_list:
+        if result["status"] == "success":
+            summary["successful_runs"] += 1
+            summary["completion_times_ms"].append(result["time_ms"])
+            if result["path_length"] is not None:
+                summary["path_lengths"].append(result["path_length"])
+        elif result["status"] == "collision":
+            summary["collisions"] += 1
+        elif result["status"] == "timeout":
+            summary["timeouts"] += 1
+        elif result["status"] == "path_fail":
+            summary["path_failures"] += 1
+
+    if summary["completion_times_ms"]:
+        summary["time_min_ms"] = min(summary["completion_times_ms"])
+        summary["time_max_ms"] = max(summary["completion_times_ms"])
+        summary["time_avg_ms"] = statistics.mean(summary["completion_times_ms"])
+
+    if summary["path_lengths"]:
+        summary["path_len_min"] = min(summary["path_lengths"])
+        summary["path_len_max"] = max(summary["path_lengths"])
+        summary["path_len_avg"] = statistics.mean(summary["path_lengths"])
+
+    if summary["total_runs"] > 0:
+        summary["collision_rate"] = summary["collisions"] / summary["total_runs"]
+        summary["timeout_rate"] = summary["timeouts"] / summary["total_runs"]
+        summary["path_failure_rate"] = summary["path_failures"] / summary["total_runs"]
+        summary["success_rate"] = summary["successful_runs"] / summary["total_runs"]
+
+    # Remove raw lists from final summary if desired
+    # del summary["completion_times_ms"]
+    # del summary["path_lengths"]
+
+    return summary
+
+def save_results(results_data, filename):
+    """Saves the results dictionary to a JSON file."""
+    try:
+        with open(filename, 'w') as f:
+            json.dump(results_data, f, indent=4)
+        print(f"Results successfully saved to {filename}")
+    except IOError as e:
+        print(f"Error saving results to {filename}: {e}")
+    except TypeError as e:
+         print(f"Error serializing results to JSON: {e}")
 
 
-# === Map ===
-tmx_data = load_pygame("map.tmx")
+# === Map Setup (Sprites, Start Pos, Paths) ===
 sprite_group = pygame.sprite.Group()
-sprite_col = pygame.sprite.Group() # Obstacle sprites (like parked cars)
+sprite_col = pygame.sprite.Group() # Static obstacles ONLY
 pedestrian_sprites = pygame.sprite.Group()
-pedestrian_paths = [] # Store paths as lists of (x, y) tuples
+pedestrian_paths = []
+border_rects = []
+Start_X, Start_Y = 0, 0
 
+# Process map layers and objects
 for layer in tmx_data.visible_layers:
     if hasattr(layer, 'data'):
         for x, y, surf in layer.tiles():
             pos = (x * CELL_SIZE, y * CELL_SIZE)
-            Tile(pos=pos, surf=surf, groups=sprite_group)
+            Tile(pos=pos, surf=surf, groups=sprite_group) # Add all tiles to general group
 
-border_rects = []
-Start_X, Start_Y = 0, 0 # These should be the CENTER coordinates for the car
-
-# Process objects AFTER tiles
 for obj in tmx_data.objects:
-    if obj.name == 'Border' or obj.type == 'Border': # Assuming type might also be used
-        # Store border rects for simple collision checks
-        border_rects.append(pygame.Rect(obj.x, obj.y, obj.width, obj.height))
+    obj_rect = pygame.Rect(obj.x, obj.y, obj.width, obj.height)
+    if obj.name == 'Border' or obj.type == 'Border':
+        border_rects.append(obj_rect)
     elif obj.name == 'Start':
-         # Crucially, assume TMX 'Start' object point is the desired CENTER of the car
-        Start_X, Start_Y = obj.x, obj.y
+        Start_X, Start_Y = obj.x, obj.y # Assume TMX point is center
     elif obj.name == 'RandomCar' and obj.image:
-        # Add static obstacle cars to a collision group
-        # Ensure correct positioning if obj.y needs adjustment for Tiled's origin
-        Tile(pos=(obj.x, obj.y), surf=obj.image, groups=(sprite_group, sprite_col))
+         # Add to general group for drawing, and specific group for collision
+         Tile(pos=(obj.x, obj.y), surf=obj.image, groups=(sprite_group, sprite_col))
     elif obj.name and "PedestrianPaths" in obj.name:
-        if hasattr(obj, 'points'):
-            # Tiled points are relative to the object's x,y. Convert to absolute screen coords.
-            # No offset needed if Tiled map origin is top-left (standard)
-            path_points = [(point.x + obj.x - 0, point.y + obj.y - 576) for point in obj.points]
-            if path_points: # Add only if path has points
-                 pedestrian_paths.append(path_points)
+         # Adjust Y offset based on your Tiled setup if necessary
+         y_offset = -576 # Adjust this value as needed from your original code
+         # Ensure obj.points exists and is iterable
+         if hasattr(obj, 'points') and obj.points:
+             path_points = [(point.x + obj.x, point.y + obj.y + y_offset) for point in obj.points]
+             if path_points:
+                  pedestrian_paths.append(path_points)
 
-# === Biến game ===
-grid = create_grid_from_map(tmx_data, CELL_SIZE)
+# ---> THÊM ĐOẠN NÀY <---
+print(f"\nDEBUG PATHS/IMAGES CHECK:") # Thêm dòng này để dễ thấy hơn
+print(f"  Số lượng pedestrian paths đã tải: {len(pedestrian_paths)}")
+if len(pedestrian_paths) > 0:
+    # In ra độ dài của một vài path đầu tiên để kiểm tra
+    for i, p in enumerate(pedestrian_paths[:3]): # In 3 path đầu
+         print(f"    Path {i} có {len(p)} điểm.")
+else:
+    print("  CẢNH BÁO: Không tải được đường đi nào cho người đi bộ!")
 
-# Create car instance using the loaded image and start coordinates
-# Pass the ORIGINAL image surface
-car = Car(Start_X, Start_Y, car_img_original)
+# (Di chuyển kiểm tra images xuống đây luôn cho gọn)
+print(f"  Số lượng pedestrian images đã tải: {len(pedestrian_images)}")
+if not pedestrian_images:
+     print("  CẢNH BÁO: Không tải được hình ảnh người đi bộ!")
+print("-" * 20) # Dòng phân cách
+# ---> KẾT THÚC <---
+# === Main Simulation Loop ===
+all_algorithm_results = {}
 
-current_path_cells = [] # Store the cells (row, col) of the current A* path
-user_goal_cell = None
-user_goal_rect = None # For drawing the target marker
-game_run = "menu"
-spawn_timer = pygame.time.get_ticks() # Initialize timer
-min_time_pedes_spawn = 6000 # milliseconds
-max_time_pedes_spawn = 12000
-next_spawn_interval = random.randint(min_time_pedes_spawn, max_time_pedes_spawn)
+for algo_name in ALGORITHMS_TO_RUN:
+    print(f"\n===== Starting Simulation for Algorithm: {algo_name} =====")
+    pathfinding_func = get_pathfinding_function(algo_name)
+    if not pathfinding_func:
+        all_algorithm_results[algo_name] = {"error": f"Algorithm function '{algo_name}' not found."}
+        continue
 
-# === Game loop ===
-recalculation_needed = False # Flag to recalculate path if obstacles change
-last_path_recalc_time = 0
-RECALC_COOLDOWN = 500 # milliseconds between path recalculations
+    current_algo_run_results = [] # List to store results for each run of this algo
 
-while True:
-    current_time = pygame.time.get_ticks()
-    events = pygame.event.get()
-    for event in events:
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and game_run == "game":
-            mx, my = pygame.mouse.get_pos()
-            clicked_col, clicked_row = mx // CELL_SIZE, my // CELL_SIZE
 
-            # Check if click is within grid bounds and not on an obstacle in the base grid
-            if 0 <= clicked_row < len(grid) and 0 <= clicked_col < len(grid[0]) and grid[clicked_row][clicked_col] == 0:
-                # Check if not clicking on a static obstacle 'RandomCar' tile either
-                clicked_rect = pygame.Rect(clicked_col * CELL_SIZE, clicked_row * CELL_SIZE, CELL_SIZE, CELL_SIZE)
-                is_static_obstacle = False
-                for obs_tile in sprite_col:
-                    if obs_tile.rect.colliderect(clicked_rect):
-                        is_static_obstacle = True
-                        break
+    for run_index in range(NUM_RUNS):
+        print(f"--- {algo_name} | Run {run_index + 1} / {NUM_RUNS} ---")
 
-                if not is_static_obstacle:
-                    user_goal_cell = (clicked_row, clicked_col)
-                    user_goal_rect = pygame.Rect(clicked_col * CELL_SIZE, clicked_row * CELL_SIZE, CELL_SIZE, CELL_SIZE)
-                    print(f"New goal set: {user_goal_cell}")
-                    recalculation_needed = True # Force path recalculation
-                else:
-                    print("Clicked on a static obstacle.")
+        # --- Reset Game State for New Run --- <--- VIỆC RESET DIỄN RA Ở ĐÂY
+        car = Car(Start_X, Start_Y, car_img_original, speed_factor=SIM_SPEED_FACTOR)
+        pedestrian_sprites.empty() # Clear previous pedestrians
+        current_path_cells = []
+        user_goal_cell = None
+        user_goal_rect = None
+        recalculation_needed = False
+        last_path_recalc_time = 0
+        RECALC_COOLDOWN = 300 # ms between path recalculations if needed
+
+    # ---> THÊM ĐOẠN CODE SPAWN BAN ĐẦU NÀY <---
+        initial_pedestrians_to_spawn = 1 # Số lượng spawn ngay lúc đầu (có thể lấy từ config)
+        print(f"DEBUG: Spawning {initial_pedestrians_to_spawn} initial pedestrian(s)...")
+        for _ in range(initial_pedestrians_to_spawn):
+            # Gọi hàm spawn nhưng bỏ qua kiểm tra thời gian và số lượng tối đa (vì đây là spawn ban đầu)
+            # Cần đảm bảo paths và images đã được tải
+            if pedestrian_paths and pedestrian_images:
+                # Có thể tạo một hàm spawn riêng hoặc điều chỉnh hàm cũ
+                # Ví dụ đơn giản là gọi trực tiếp:
+                spawn_random_pedestrian(pedestrian_paths, pedestrian_sprites, SIM_SPEED_FACTOR)
             else:
-                print("Clicked outside map bounds or on a border obstacle.")
+                print("WARN: Cannot spawn initial pedestrian, paths or images missing.")
+                break # Thoát vòng lặp nếu thiếu dữ liệu
+        print(f"DEBUG: Initial spawn done. Current peds: {len(pedestrian_sprites)}")
+    # ---> KẾT THÚC ĐOẠN CODE SPAWN BAN ĐẦU <---
+
+        # Find a random valid goal
+        start_cell_approx = (int(car.center_y) // CELL_SIZE, int(car.center_x) // CELL_SIZE)
+        user_goal_cell = find_random_valid_goal(base_grid, grid_rows, grid_cols, start_cell_approx)
+
+        if user_goal_cell is None:
+            print("   Failed to find valid random goal. Skipping run.")
+            current_algo_run_results.append({"status": "path_fail", "reason": "no_goal"})
+            continue # Skip to the next run
+
+        user_goal_rect = pygame.Rect(user_goal_cell[1] * CELL_SIZE, user_goal_cell[0] * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+        print(f"   Goal: {user_goal_cell}")
+        recalculation_needed = True # Need initial path
+
+        # Reset timers and flags for the run
+        run_start_time_ms = pygame.time.get_ticks()
+        spawn_timer = run_start_time_ms
+        next_spawn_interval = random.randint(MIN_TIME_PEDES_SPAWN, MAX_TIME_PEDES_SPAWN)
+        simulation_running = True
+        run_status = "running" # 'success', 'collision', 'timeout', 'path_fail'
+        run_time_ms = 0
+        run_path_length = None
+
+        # --- Single Run Loop ---
+        while simulation_running:
+            current_time_ms = pygame.time.get_ticks()
+            delta_time = clock.tick(FPS) / 1000.0 # Time since last frame in seconds (less critical in headless)
+
+            # Check for timeout
+            run_time_ms = current_time_ms - run_start_time_ms
+            if run_time_ms > MAX_RUN_TIME_MS:
+                print("   Run timed out.")
+                run_status = "timeout"
+                simulation_running = False
+                continue # Exit loop
+
+            # Handle Quit Event (even in headless)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    print("Quit event received. Shutting down.")
+                    save_results(all_algorithm_results, RESULTS_FILE) # Save progress
+                    pygame.quit()
+                    sys.exit()
+
+            # --- Updates ---
+            # Pedestrian Spawning
+            if current_time_ms - spawn_timer > next_spawn_interval and pedestrian_paths:
+                 spawn_random_pedestrian(pedestrian_paths, pedestrian_sprites, SIM_SPEED_FACTOR)
+                 spawn_timer = current_time_ms
+                 next_spawn_interval = random.randint(MIN_TIME_PEDES_SPAWN, MAX_TIME_PEDES_SPAWN)
+            # Pedestrian Spawning
+            time_since_last_spawn = current_time_ms - spawn_timer
+            should_spawn_time = time_since_last_spawn > next_spawn_interval
+            # Lấy trạng thái MỚI NHẤT của các biến
+            paths_exist = bool(pedestrian_paths)
+            images_exist = bool(pedestrian_images)
+            can_spawn_more = len(pedestrian_sprites) < MAX_PEDESTRIANS
+
+            # ---> ĐẢM BẢO BẠN CÓ DÒNG PRINT NÀY <---
+            # In ra trạng thái kiểm tra chi tiết MỖI KHI đến thời điểm spawn tiềm năng
+            if should_spawn_time: # Chỉ in khi đến lúc cần kiểm tra spawn
+                 print(f"DEBUG SPAWN CHECK @ {current_time_ms}ms: TimeOK={should_spawn_time}, PathsOK={paths_exist}, ImagesOK={images_exist}, SpaceOK={can_spawn_more}, NextInterval={next_spawn_interval}ms")
+            # ---> KẾT THÚC <---
 
 
-    # --- Game State Logic ---
-    if game_run == "menu":
-        screen.fill((24, 24, 24))
-        if playBtn.draw(screen):
-            game_run = "game"
-            # Reset car position and path when starting
-            car = Car(Start_X, Start_Y, car_img_original) # Recreate to reset state fully
-            current_path_cells = []
-            user_goal_cell = None
-            user_goal_rect = None
-            pedestrian_sprites.empty() # Clear pedestrians
-            spawn_timer = current_time # Reset spawn timer
-            next_spawn_interval = random.randint(min_time_pedes_spawn, max_time_pedes_spawn)
+            if should_spawn_time and paths_exist and images_exist and can_spawn_more:
+                 print(f"DEBUG: Đang gọi spawn_random_pedestrian (Time: {current_time_ms}ms, Current Peds: {len(pedestrian_sprites)})")
+                 spawn_random_pedestrian(pedestrian_paths, pedestrian_sprites, SIM_SPEED_FACTOR)
+                 spawn_timer = current_time_ms # Reset timer SAU KHI gọi spawn
+                 next_spawn_interval = random.randint(MIN_TIME_PEDES_SPAWN, MAX_TIME_PEDES_SPAWN)
+                 print(f"DEBUG: Timer reset. Next spawn interval: {next_spawn_interval}ms") # Thêm dòng này
 
-        pygame.display.update()
-        clock.tick(60)
-        continue # Skip rest of the loop
+            # Pedestrian Movement
+            pedestrian_sprites.update()
 
-    elif game_run == "col" or game_run == "finish":
-        screen.fill((24, 24, 24))
-        state_text = "CRASHED!" if game_run == "col" else "PARKED!"
-        button_text = "RETRY" if game_run == "col" else "NEXT MAP" # Or just RETRY/PLAY AGAIN
+            # Pathfinding Logic
+            dynamic_obstacle_check = check_pedestrian_on_path(current_path_cells, pedestrian_sprites, CELL_SIZE)
+            
+            if user_goal_cell and (recalculation_needed or dynamic_obstacle_check) \
+               and current_time_ms - last_path_recalc_time > RECALC_COOLDOWN:
 
-        # Center text more accurately
-        text_surf = font.render(state_text, True, TEXT_COL)
-        text_rect = text_surf.get_rect(center=(SCREEN_WIDTH // 2, button_y))
-        screen.blit(text_surf, text_rect)
+                 # print("   Recalculating path...") # Can be noisy
+                 temp_grid = [row[:] for row in base_grid] # Start with base obstacles
+                 for ped in pedestrian_sprites: # Add dynamic obstacles
+                     ped_col = ped.rect.centerx // CELL_SIZE
+                     ped_row = ped.rect.centery // CELL_SIZE
+                     if 0 <= ped_row < grid_rows and 0 <= ped_col < grid_cols:
+                          temp_grid[ped_row][ped_col] = 1 # Mark as blocked
 
-        # Position button text relative to button
-        btn_text_surf = font.render(button_text, True, TEXT_COL)
-        btn_text_rect = btn_text_surf.get_rect(center=emptyBtn.rect.center)
-        screen.blit(btn_text_surf, btn_text_rect)
+                 car_col = int(car.center_x) // CELL_SIZE
+                 car_row = int(car.center_y) // CELL_SIZE
+                 start_cell = (car_row, car_col)
 
-        keys = pygame.key.get_pressed()
-        action_key = pygame.K_r if game_run == "col" else pygame.K_n # R for Retry, N for Next
+                 path_found = False
+                 if 0 <= start_cell[0] < grid_rows and 0 <= start_cell[1] < grid_cols:
+                     if temp_grid[start_cell[0]][start_cell[1]] == 0: # Ensure start is valid
+                         new_path = pathfinding_func(temp_grid, start_cell, user_goal_cell) # Use selected algo
+                         if new_path:
+                             # Path found includes goal, might include start or first step
+                             # Let's assume it includes the goal. What about start?
+                             # If A* returns path *from* start's neighbor, use as is.
+                             # If A* returns path *including* start, slice it: new_path[1:]
+                             # Assuming A* returns path TO goal, starting from first step or start itself
+                             current_path_cells = new_path
+                             car.set_path(current_path_cells)
+                             # print(f"   Path found: {len(current_path_cells)} steps.") # Noisy
+                             path_found = True
+                             run_path_length = len(current_path_cells) # Store initial length
+                         # else: print("   No path found by algorithm.")
+                     # else: print("   Car start cell is blocked.")
 
-        if emptyBtn.draw(screen) or keys[action_key]:
-            game_run = "game" # Go back to game state
-            # Reset car and game state (same as when starting from menu)
-            car = Car(Start_X, Start_Y, car_img_original)
-            current_path_cells = []
-            user_goal_cell = None
-            user_goal_rect = None
-            pedestrian_sprites.empty()
-            spawn_timer = current_time
-            next_spawn_interval = random.randint(min_time_pedes_spawn, max_time_pedes_spawn)
+                 if not path_found:
+                     car.set_path([]) # Clear path if failed
+                     current_path_cells = []
+                     # Decide if this is a run failure? Maybe only if it persists?
+                     # For now, let car stop and potentially retry pathfinding later
 
-        pygame.display.update()
-        clock.tick(60)
-        continue # Skip rest of the loop
+                 recalculation_needed = False # Reset flag
+                 last_path_recalc_time = current_time_ms
 
 
-    # --- Main Game Logic (game_run == "game") ---
+            # Car Movement (Always assume "space_pressed" for simulation)
+            car.move_towards_path(pedestrian_sprites, True)
 
-    # --- Pedestrian Spawning ---
-    if current_time - spawn_timer > next_spawn_interval and pedestrian_paths:
-        spawn_random_pedestrian(pedestrian_paths, pedestrian_sprites)
-        spawn_timer = current_time
-        next_spawn_interval = random.randint(min_time_pedes_spawn, max_time_pedes_spawn)
+            # --- Collision Checks (After Movement) ---
+            collision_this_frame = False
+            # 1. Borders
+            for border in border_rects:
+                if car.rect.colliderect(border):
+                    # print("   Collision with border!") # Debug
+                    collision_this_frame = True
+                    break
+            # 2. Static Obstacles (sprite_col)
+            if not collision_this_frame:
+                # Use mask collision for accuracy
+                collided_statics = pygame.sprite.spritecollide(car, sprite_col, False, pygame.sprite.collide_mask)
+                if collided_statics:
+                    # print(f"   Collision with static obstacle!") # Debug
+                    collision_this_frame = True
+            # 3. Pedestrians
+            if not collision_this_frame:
+                 collided_peds = pygame.sprite.spritecollide(car, pedestrian_sprites, False, pygame.sprite.collide_mask)
+                 if collided_peds:
+                      # print(f"   Collision with pedestrian!") # Debug
+                      collision_this_frame = True
 
-    # --- Pedestrian Updates ---
-    pedestrian_sprites.update() # Move pedestrians
+            if collision_this_frame:
+                print("   Collision detected.")
+                run_status = "collision"
+                simulation_running = False
+                # continue
 
-    # --- Pathfinding ---
-    # Check if recalculation is needed (new goal, or path blocked)
-    # Limit frequency of recalculations to avoid performance issues
-    if user_goal_cell and (recalculation_needed or check_pedestrian_on_path(current_path_cells, pedestrian_sprites, CELL_SIZE)) \
-       and current_time - last_path_recalc_time > RECALC_COOLDOWN:
+              # --- Check Goal Arrival --- (SỬA LẦN 2 - Ưu tiên kiểm tra hoàn thành path)
+            # Đầu tiên, kiểm tra xem vòng lặp còn nên chạy không (chưa bị va chạm dừng)
+            if not simulation_running:
+                pass # Nếu đã dừng (do va chạm), bỏ qua kiểm tra đích
 
-        print("Recalculating path...")
-        # Create a temporary grid reflecting current pedestrian positions
-        temp_grid = [row[:] for row in grid] # Copy base grid
-        for ped in pedestrian_sprites:
-             ped_col = ped.rect.centerx // CELL_SIZE
-             ped_row = ped.rect.centery // CELL_SIZE
-             if 0 <= ped_row < len(temp_grid) and 0 <= ped_col < len(temp_grid[0]):
-                  temp_grid[ped_row][ped_col] = 1 # Mark pedestrian cell as blocked
+            # TIẾP THEO: Ưu tiên kiểm tra xem logic đường đi đã hoàn thành chưa
+            # Chỉ cần target_index đạt hoặc vượt qua index cuối cùng LÀ ĐỦ.
+            elif car.path and car.target_index >= len(car.path): # Kiểm tra >= len(path) thay vì len(path) - 1
+                 # Nếu không có path HOẶC target_index đã hoàn thành (ví dụ: 18 >= 18)
+                 # Kiểm tra thêm xem xe có đang ở *gần* ô đích không (dùng collidepoint hoặc colliderect như một xác nhận phụ)
+                 # Điều này giúp tránh trường hợp path rất ngắn và index tăng vọt ngay lập tức.
+                 is_physically_near_goal = False
+                 if user_goal_rect and user_goal_rect.collidepoint(car.center_x, car.center_y):
+                      is_physically_near_goal = True
+                 # HOẶC có thể dùng colliderect để kiểm tra xem hình chữ nhật xe có chạm ô đích không:
+                 # elif user_goal_rect and car.rect.colliderect(user_goal_rect):
+                 #    is_physically_near_goal = True
 
-        # Get car's current grid cell
-        car_col = int(car.center_x) // CELL_SIZE
-        car_row = int(car.center_y) // CELL_SIZE
-        start_cell = (car_row, car_col)
+                 # Chỉ kích hoạt thành công nếu path đã xong THEO INDEX VÀ xe đang ở trong/chạm ô đích
+                 # -> Sửa lại: Chỉ cần path index xong là đủ!
+                 # Bỏ is_physically_near_goal nếu gây vấn đề như trên.
+                 # Chỉ cần:
+                 if True: # Luôn đúng nếu đã vào nhánh elif này
+                    print(f"   Goal reached! (Path index {car.target_index} >= Length {len(car.path)})")
+                    run_status = "success"
+                    simulation_running = False
 
-        # Ensure start cell is valid (sometimes car might slightly exit grid)
-        if not (0 <= start_cell[0] < len(temp_grid) and 0 <= start_cell[1] < len(temp_grid[0])):
-             print("Warning: Car outside grid bounds, cannot calculate path.")
-             # Optionally try to find nearest valid cell or stop car
-        elif temp_grid[start_cell[0]][start_cell[1]] == 1:
-             print("Warning: Car started in an obstacle cell? Stopping.")
-             car.speed = 0 # Stop car if stuck
-             car.set_path([]) # Clear path
+            # Không cần kiểm tra collidepoint riêng lẻ nữa nếu đã ưu tiên path index.
+            # Kết thúc kiểm tra đến đích
+            # Kết thúc kiểm tra đến đích
+
+            # --- Drawing (if not headless) ---
+            if not RUN_HEADLESS and screen:
+                screen.fill((100, 100, 100))
+                sprite_group.draw(screen) # Draw map and static cars
+
+                # Draw goal marker
+                if user_goal_rect:
+                    # Draw slightly transparent rect
+                    s = pygame.Surface((CELL_SIZE, CELL_SIZE), pygame.SRCALPHA)
+                    s.fill((0, 255, 0, 100)) # Target fill: Green, semi-transparent
+                    screen.blit(s, user_goal_rect.topleft)
+                    pygame.draw.rect(screen, (255, 255, 255), user_goal_rect, 1) # White border
+
+                # Draw A* path (optional debug)
+                # if current_path_cells:
+                #     for i, (r, c) in enumerate(current_path_cells):
+                #         x = c * CELL_SIZE + CELL_SIZE // 2
+                #         y = r * CELL_SIZE + CELL_SIZE // 2
+                #         color = (255, 0, 0) if i >= car.target_index else (255, 150, 150)
+                #         pygame.draw.circle(screen, color, (x, y), 3)
+                pedestrian_sprites.draw(screen)
+                car.draw(screen)
+                # Draw run info
+                draw_text(f"Algo: {algo_name}", font, TEXT_COL, 10, 10, screen)
+                draw_text(f"Run: {run_index + 1}/{NUM_RUNS}", font, TEXT_COL, 10, 50, screen)
+                draw_text(f"Time: {run_time_ms/1000:.1f}s", font, TEXT_COL, 10, 90, screen)
+                draw_text(f"Status: {run_status}", font, TEXT_COL, 10, 130, screen)
+
+                pygame.display.flip()
+
+        
+        # --- End of Single Run Loop ---
+        # Record the result of this run
+        current_algo_run_results.append({
+            "status": run_status,
+            "time_ms": run_time_ms if run_status == "success" else None,
+            "path_length": run_path_length if run_status == "success" else None,
+            "reason": "" # Could add more detail for failures
+        })
+        # Brief pause if running visually
+        if not RUN_HEADLESS:
+             pygame.time.wait(50) # Short pause to see result before next run
+
+
+    # --- End of All Runs for One Algorithm ---
+    # Process and store the results for this algorithm
+    print(f"\n--- Results Summary for Algorithm: {algo_name} ---")
+    processed_results = process_simulation_results(current_algo_run_results)
+    all_algorithm_results[algo_name] = processed_results
+    # Print summary to console
+    for key, value in processed_results.items():
+        if isinstance(value, float):
+             print(f"   {key}: {value:.3f}")
         else:
-             # Run A*
-             new_path = a_star(temp_grid, start_cell, user_goal_cell)
-
-             if new_path:
-                  # A* returns path including the goal, maybe exclude start?
-                  # If A* includes start cell: current_path_cells = new_path[1:]
-                  # If A* starts from neighbor: current_path_cells = new_path
-                  current_path_cells = new_path # Assume path starts from first step TO goal
-                  car.set_path(current_path_cells)
-                  print(f"Path found: {len(current_path_cells)} steps.")
-             else:
-                  print("No path found to goal.")
-                  car.set_path([]) # Clear path if none found
-                  # Optionally clear user_goal_cell too? Or keep trying?
-
-        recalculation_needed = False # Reset flag
-        last_path_recalc_time = current_time
+             print(f"   {key}: {value}")
 
 
-    # --- Car Update and Movement ---
-    keys = pygame.key.get_pressed()
-    space_pressed = keys[pygame.K_SPACE]
-    car.move_towards_path(pedestrian_sprites, space_pressed) # Pass only pedestrians for dynamic avoidance
+# --- End of All Algorithms ---
+print("\n===== Simulation Complete =====")
+# Save all results
+save_results(all_algorithm_results, RESULTS_FILE)
 
-    # --- Collision Checks (After Movement) ---
-    collision_occurred = False
-    # 1. Borders (Simple Rect Collision)
-    for border in border_rects:
-        if car.rect.colliderect(border):
-            print("Collision with border!")
-            collision_occurred = True
-            break
-    # 2. Static Obstacles (Mask Collision)
-    if not collision_occurred:
-        collided_obstacles = pygame.sprite.spritecollide(car, sprite_col, False, pygame.sprite.collide_mask)
-        if collided_obstacles:
-            print(f"Collision with static obstacle(s): {collided_obstacles}")
-            collision_occurred = True
-    # 3. Pedestrians (Mask Collision - re-check after both moved)
-    if not collision_occurred:
-         collided_peds = pygame.sprite.spritecollide(car, pedestrian_sprites, False, pygame.sprite.collide_mask)
-         if collided_peds:
-             print(f"Collision with pedestrian(s): {collided_peds}")
-             collision_occurred = True
-
-    if collision_occurred:
-        game_run = "col" # Change state, reset happens in the next loop iteration
-
-    # --- Check Goal Arrival ---
-    # Check if the car's center is within the goal cell rectangle
-    if user_goal_rect and user_goal_rect.collidepoint(car.center_x, car.center_y):
-         # More robust check: Is the path list exhausted?
-         if not car.path or car.target_index >= len(car.path):
-              print("Goal reached!")
-              game_run = "finish"
-
-
-    # --- Drawing ---
-    screen.fill((100, 100, 100)) # Background color
-
-    # Draw map tiles
-    sprite_group.draw(screen)
-
-    # Draw static obstacles (already in sprite_group, but could draw separately)
-    # sprite_col.draw(screen)
-
-    # Draw goal marker
-    if user_goal_rect:
-        pygame.draw.rect(screen, (0, 255, 0, 150), user_goal_rect, 0) # Semi-transparent green fill
-        pygame.draw.rect(screen, (255, 255, 255), user_goal_rect, 2) # White border
-
-    # Draw A* path (optional debug)
-    if current_path_cells:
-        for i, (r, c) in enumerate(current_path_cells):
-            x = c * CELL_SIZE + CELL_SIZE // 2
-            y = r * CELL_SIZE + CELL_SIZE // 2
-            color = (255, 0, 0) if i >= car.target_index else (255, 150, 150) # Highlight remaining path
-            pygame.draw.circle(screen, color, (x, y), 4)
-
-
-    # Draw pedestrians
-    pedestrian_sprites.draw(screen)
-
-    # Draw car
-    car.draw(screen)
-
-    # --- Display Update ---
-    pygame.display.flip()
-    clock.tick(60) # Limit FPS
+pygame.quit()
+sys.exit()
