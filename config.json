@@ -10,9 +10,9 @@
   "max_run_time_ms": 60000,
   "results_output_file": "simulation_results.json",
   "_comment": "Pedestrian configuration below",
-  "max_pedestrians": 5,
-  "min_pedestrian_spawn_interval_ms": 500,
-  "max_pedestrian_spawn_interval_ms": 1000,
-  "pedestrian_speed": 2
+  "max_pedestrians": 10,
+  "min_pedestrian_spawn_interval_ms": 100,
+  "max_pedestrian_spawn_interval_ms": 500,
+  "pedestrian_speed": 5
 
 }

@@ -851,7 +851,30 @@ for algo_name in ALGORITHMS_TO_RUN:
                     s.fill((0, 255, 0, 100))
                     screen.blit(s, user_goal_rect.topleft)
                     pygame.draw.rect(screen, (255, 255, 255), user_goal_rect, 1)
+                
+                # --- Draw Car Path ---
+                if current_path_cells:  # Chỉ vẽ nếu có đường đi hiện tại
+                    PATH_COLOR_FUTURE = (255, 0, 0)  # Màu đỏ cho các điểm sắp tới
+                    PATH_COLOR_PAST = (255, 120, 120) # Màu xám (hoặc đỏ mờ) cho các điểm đã qua
+                    # Bạn cũng có thể dùng màu đỏ mờ: PATH_COLOR_PAST = (150, 50, 50)
+                    DOT_RADIUS = 4  # Kích thước của chấm
 
+                    # Lặp qua từng ô (cell) trong đường đi hiện tại
+                    for i, cell in enumerate(current_path_cells):
+                        row, col = cell
+                        # Chuyển đổi tọa độ grid (ô) sang tọa độ pixel (điểm ảnh) ở tâm ô
+                        center_x = col * CELL_SIZE + CELL_SIZE // 2
+                        center_y = row * CELL_SIZE + CELL_SIZE // 2
+
+                        # Kiểm tra xem điểm này là điểm sắp tới hay đã đi qua
+                        # car.target_index là chỉ số của điểm tiếp theo mà xe đang hướng tới
+                        if i >= car.target_index:
+                            color_to_use = PATH_COLOR_FUTURE
+                        else:
+                            color_to_use = PATH_COLOR_PAST
+
+                        # Vẽ chấm tròn tại vị trí tương ứng
+                        pygame.draw.circle(screen, color_to_use, (center_x, center_y), DOT_RADIUS)
                 # Draw pedestrians
                 pedestrian_sprites.draw(screen)
                 # Draw car

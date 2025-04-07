@@ -1,52 +1,50 @@
 {
     "a_star": {
         "total_runs": 3,
-        "successful_runs": 3,
-        "collisions": 0,
-        "timeouts": 0,
-        "path_failures": 0,
-        "completion_times_ms": [
-            1031,
-            2302,
-            1428
-        ],
-        "path_lengths": [
-            8,
-            14,
-            15
-        ],
-        "time_min_ms": 1031,
-        "time_max_ms": 2302,
-        "time_avg_ms": 1587,
-        "path_len_min": 8,
-        "path_len_max": 15,
-        "path_len_avg": 12.333333333333334,
-        "collision_rate": 0.0,
-        "timeout_rate": 0.0,
-        "path_failure_rate": 0.0,
-        "success_rate": 1.0
-    },
-    "bfs": {
-        "total_runs": 3,
         "successful_runs": 1,
         "collisions": 2,
         "timeouts": 0,
         "path_failures": 0,
         "completion_times_ms": [
-            1959
+            1403
         ],
         "path_lengths": [
-            14
+            9
         ],
-        "time_min_ms": 1959,
-        "time_max_ms": 1959,
-        "time_avg_ms": 1959,
-        "path_len_min": 14,
-        "path_len_max": 14,
-        "path_len_avg": 14,
+        "time_min_ms": 1403,
+        "time_max_ms": 1403,
+        "time_avg_ms": 1403,
+        "path_len_min": 9,
+        "path_len_max": 9,
+        "path_len_avg": 9,
         "collision_rate": 0.6666666666666666,
         "timeout_rate": 0.0,
         "path_failure_rate": 0.0,
         "success_rate": 0.3333333333333333
+    },
+    "bfs": {
+        "total_runs": 3,
+        "successful_runs": 2,
+        "collisions": 1,
+        "timeouts": 0,
+        "path_failures": 0,
+        "completion_times_ms": [
+            3970,
+            1816
+        ],
+        "path_lengths": [
+            22,
+            11
+        ],
+        "time_min_ms": 1816,
+        "time_max_ms": 3970,
+        "time_avg_ms": 2893,
+        "path_len_min": 11,
+        "path_len_max": 22,
+        "path_len_avg": 16.5,
+        "collision_rate": 0.3333333333333333,
+        "timeout_rate": 0.0,
+        "path_failure_rate": 0.0,
+        "success_rate": 0.6666666666666666
     }
 }
