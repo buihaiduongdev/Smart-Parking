@@ -13,6 +13,6 @@
   "max_pedestrians": 10,
   "min_pedestrian_spawn_interval_ms": 100,
   "max_pedestrian_spawn_interval_ms": 500,
-  "pedestrian_speed": 5
+  "pedestrian_speed": 3
 
 }
