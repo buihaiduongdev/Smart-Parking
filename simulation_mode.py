@@ -15,7 +15,7 @@ import Button
 pygame.init()
 
 # === Configuration Loading ===
-CONFIG_FILE = "./Data/config.json"
+CONFIG_FILE = "./Data/config_hard.json"
 try:
     with open(CONFIG_FILE, 'r') as f:
         config = json.load(f)
@@ -391,10 +391,9 @@ def get_pathfinding_function(algo_name):
     elif algo_name == "bfs":
         from pathfinding import bfs # Import hàm bfs
         return bfs
-    # Add other algorithms here:
-    # elif algo_name == "dijkstra":
-    #     from pathfinding_algorithms import dijkstra
-    #     return dijkstra
+    elif algo_name == "dfs":
+        from pathfinding import dfs # Import hàm bfs
+        return dfs
     else:
         print(f"Warning: Pathfinding algorithm '{algo_name}' not found.")
         return None

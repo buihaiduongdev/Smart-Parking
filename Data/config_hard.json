@@ -1,0 +1,18 @@
+{
+  "algorithms_to_run": [
+    "a_star",
+    "bfs",
+    "dfs"
+  ],
+  "num_runs_per_algorithm": 100,
+  "simulation_speed_factor": 3,
+  "run_headless": false,
+  "max_run_time_ms": 60000,
+  "results_output_file": "simulation_results.json",
+  "_comment": "Pedestrian configuration below",
+  "max_pedestrians": 15,
+  "min_pedestrian_spawn_interval_ms": 500,
+  "max_pedestrian_spawn_interval_ms": 2000,
+  "pedestrian_speed": 2
+
+}
