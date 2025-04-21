@@ -5,7 +5,7 @@ from config import *
 from assets import load_assets
 from pytmx.util_pygame import load_pygame
 
-RESULT_FILE = "results.json"           # nơi lưu JSON
+RESULT_FILE = "./Data/manual_results.json"           # nơi lưu JSON
 
 # ---------- Hàm tiện ích ghi/đọc JSON ----------
 def _load_results():
