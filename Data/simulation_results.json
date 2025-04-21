@@ -1,0 +1,52 @@
+{
+    "a_star": {
+        "total_runs": 2,
+        "successful_runs": 2,
+        "collisions": 0,
+        "timeouts": 0,
+        "path_failures": 0,
+        "completion_times_ms": [
+            1617,
+            1934
+        ],
+        "path_lengths": [
+            10,
+            11
+        ],
+        "time_min_ms": 1617,
+        "time_max_ms": 1934,
+        "time_avg_ms": 1775.5,
+        "path_len_min": 10,
+        "path_len_max": 11,
+        "path_len_avg": 10.5,
+        "collision_rate": 0.0,
+        "timeout_rate": 0.0,
+        "path_failure_rate": 0.0,
+        "success_rate": 1.0
+    },
+    "bfs": {
+        "total_runs": 2,
+        "successful_runs": 2,
+        "collisions": 0,
+        "timeouts": 0,
+        "path_failures": 0,
+        "completion_times_ms": [
+            2263,
+            2360
+        ],
+        "path_lengths": [
+            13,
+            14
+        ],
+        "time_min_ms": 2263,
+        "time_max_ms": 2360,
+        "time_avg_ms": 2311.5,
+        "path_len_min": 13,
+        "path_len_max": 14,
+        "path_len_avg": 13.5,
+        "collision_rate": 0.0,
+        "timeout_rate": 0.0,
+        "path_failure_rate": 0.0,
+        "success_rate": 1.0
+    }
+}

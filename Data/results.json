@@ -1,0 +1,17 @@
+[
+  {
+    "algorithm": "A_STAR",
+    "time": 19.0,
+    "distance": 18
+  },
+  {
+    "algorithm": "BFS",
+    "time": 20.5,
+    "distance": 18
+  },
+  {
+    "algorithm": "DFS",
+    "time": 137.5,
+    "distance": 114
+  }
+]

@@ -15,7 +15,7 @@ import Button
 pygame.init()
 
 # === Configuration Loading ===
-CONFIG_FILE = "config.json"
+CONFIG_FILE = "./Data/config.json"
 try:
     with open(CONFIG_FILE, 'r') as f:
         config = json.load(f)
@@ -24,7 +24,7 @@ try:
     SIM_SPEED_FACTOR = config.get("simulation_speed_factor", 1.0)
     RUN_HEADLESS = config.get("run_headless", False)
     MAX_RUN_TIME_MS = config.get("max_run_time_ms", 60000)
-    RESULTS_FILE = config.get("results_output_file", "simulation_results.json")
+    RESULTS_FILE = "./Data/simulation_results.json"
     MAX_PEDESTRIANS = config.get("max_pedestrians", 5) # Lấy từ config, mặc định là 5 nếu thiếu
     MIN_TIME_PEDES_SPAWN = config.get("min_pedestrian_spawn_interval_ms", 1000) # Mặc định 6000ms
     MAX_TIME_PEDES_SPAWN = config.get("max_pedestrian_spawn_interval_ms", 2000) # Mặc định 12000ms
@@ -34,7 +34,7 @@ try:
     print(f"Runs per Algo: {NUM_RUNS}")
     print(f"Speed Factor: {SIM_SPEED_FACTOR}")
     print(f"Headless: {RUN_HEADLESS}")
-    print(f"Max Run Time: {MAX_RUN_TIME_MS} ms")
+    print(f"Max Run Time: {MAX_RUN_TIME_MS} ms")    
     print(f"Results File: {RESULTS_FILE}")
     print("---------------------")
 except FileNotFoundError:
@@ -385,11 +385,11 @@ def get_pathfinding_function(algo_name):
     if algo_name == "a_star":
         # Import dynamically if needed, or rely on global import
         # from pathfinding_algorithms import a_star
-        from pathfinding_algorithms import a_star, heuristic # Import from the new file
+        from pathfinding import a_star, heuristic # Import from the new file
         return a_star
     
     elif algo_name == "bfs":
-        from pathfinding_algorithms import bfs # Import hàm bfs
+        from pathfinding import bfs # Import hàm bfs
         return bfs
     # Add other algorithms here:
     # elif algo_name == "dijkstra":

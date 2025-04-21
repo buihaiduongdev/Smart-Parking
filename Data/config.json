@@ -4,15 +4,15 @@
     "bfs"
 
   ],
-  "num_runs_per_algorithm": 3,
+  "num_runs_per_algorithm": 2,
   "simulation_speed_factor": 3.0,
   "run_headless": false,
   "max_run_time_ms": 60000,
   "results_output_file": "simulation_results.json",
   "_comment": "Pedestrian configuration below",
   "max_pedestrians": 10,
-  "min_pedestrian_spawn_interval_ms": 100,
-  "max_pedestrian_spawn_interval_ms": 500,
-  "pedestrian_speed": 5
+  "min_pedestrian_spawn_interval_ms": 1000,
+  "max_pedestrian_spawn_interval_ms": 5000,
+  "pedestrian_speed": 2
 
 }
