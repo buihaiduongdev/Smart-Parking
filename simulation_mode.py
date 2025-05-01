@@ -5,6 +5,12 @@ import random
 import json # For config and results
 import time # For performance timing independent of Pygame ticks if needed
 import statistics # For calculating averages
+# === Sau khi Simulation xong, mở giao diện Phân Tích ===
+import tkinter as tk
+from tkinter import ttk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.pyplot as plt
+import analysis_ui
 
 # Import local modules
 from pytmx.util_pygame import load_pygame
@@ -383,17 +389,26 @@ def draw_text(text, font_obj, color, x, y, surface):
 def get_pathfinding_function(algo_name):
     """Maps algorithm name string to the actual function."""
     if algo_name == "a_star":
-        # Import dynamically if needed, or rely on global import
-        # from pathfinding_algorithms import a_star
-        from pathfinding import a_star, heuristic # Import from the new file
+        from pathfinding import a_star
         return a_star
-    
     elif algo_name == "bfs":
-        from pathfinding import bfs # Import hàm bfs
+        from pathfinding import bfs
         return bfs
     elif algo_name == "dfs":
-        from pathfinding import dfs # Import hàm bfs
+        from pathfinding import dfs
         return dfs
+    elif algo_name == "simple_hill_climbing":
+        from pathfinding import simple_hill_climbing
+        return simple_hill_climbing
+    elif algo_name == "bfs_sensorless":
+        from pathfinding import bfs_sensorless
+        return bfs_sensorless
+    elif algo_name == "csp_backtracking":
+        from pathfinding import csp_backtracking
+        return csp_backtracking
+    elif algo_name == "dqn":
+        from pathfinding import DQN  
+        return DQN
     else:
         print(f"Warning: Pathfinding algorithm '{algo_name}' not found.")
         return None
@@ -752,7 +767,7 @@ for algo_name in ALGORITHMS_TO_RUN:
                         print(f"   Running A* from {start_cell} to {user_goal_cell}")
                         new_path = pathfinding_func(temp_grid, start_cell, user_goal_cell)
                         if new_path:
-                            print(f"   Path found by A*: Length={len(new_path)}")
+                            print(f"   Path found by: Length={len(new_path)}")
                             current_path_cells = new_path
                             car.set_path(current_path_cells)
                             path_found = True
@@ -920,8 +935,18 @@ for algo_name in ALGORITHMS_TO_RUN:
 
 # --- End of All Algorithms ---
 print("\n===== Simulation Complete =====")
-# Save all results
+
+
+# Sau khi hoàn tất lưu kết quả
 save_results(all_algorithm_results, RESULTS_FILE)
 
+# Import sau cùng
+import analysis_ui
+
+# Đóng toàn bộ Pygame
+pygame.display.quit()
 pygame.quit()
-sys.exit()
+
+# Mở giao diện phân tích
+analysis_ui.launch_analysis_ui()
+

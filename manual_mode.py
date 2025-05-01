@@ -4,7 +4,9 @@ import pygame, sys, math, os, json, datetime, random
 from config import *
 from assets import load_assets
 from pytmx.util_pygame import load_pygame
-
+ # GỌI POPUP THÔNG BÁO
+import tkinter as tk
+from tkinter import messagebox
 RESULT_FILE = "./Data/manual_results.json"           # nơi lưu JSON
 
 # ---------- Hàm tiện ích ghi/đọc JSON ----------
@@ -16,6 +18,17 @@ def _load_results():
             return json.load(f)
     except Exception:
         return []
+def check_collision():
+    for border in border_rects:
+        if car.rect.colliderect(border):
+            return True
+    for col_sprite in sprite_col:
+        if car.mask.overlap(pygame.mask.from_surface(col_sprite.image), (col_sprite.rect.x - car.rect.x, col_sprite.rect.y - car.rect.y)):
+            return True
+    for ped in pedestrian_sprites:
+        if car.mask.overlap(ped.mask, (ped.rect.x - car.rect.x, ped.rect.y - car.rect.y)):
+            return True
+    return False
 
 def _same(rec1, rec2):
     return (
@@ -81,7 +94,7 @@ tmx_data = load_pygame("map.tmx")
 sprite_group = pygame.sprite.Group()
 sprite_col = pygame.sprite.Group()
 pedestrian_sprites = pygame.sprite.Group()
-
+game_run = "game"
 border_rects, pedestrian_paths, Start_X, Start_Y = load_map_objects(tmx_data, sprite_group, sprite_col)
 grid = create_grid_from_map(tmx_data, CELL_SIZE)
 dynamic_grid = [row[:] for row in grid]
@@ -98,7 +111,11 @@ BTN_RECTS = {
 }
 
 results_log = []
-
+# -- Dialog popup
+dialog_mode = None  # None, 'success', 'collision'
+show_dialog = False
+dialog_rect = pygame.Rect((SCREEN_WIDTH - 400)//2, (SCREEN_HEIGHT - 200)//2, 400, 200)
+ok_button_rect = pygame.Rect(dialog_rect.centerx - 60, dialog_rect.bottom - 60, 120, 40)
 
 def draw_text(text, font, color, x, y):
     img = font.render(text, True, color)
@@ -118,27 +135,7 @@ def compute_path(grid, start, goal):
     if CURRENT_ALGO == "bfs": return bfs(grid, start, goal)
     elif CURRENT_ALGO == "dfs": return dfs(grid, start, goal)
     return a_star(grid, start, goal)
-def draw_menu():
-    screen.blit(menu_bg, (0, 0))  # Nền ảnh
-    title = MENU_FONT_TITLE.render("Smart Parking AI", True, (0, 255, 255))
-    screen.blit(title, ((SCREEN_WIDTH - title.get_width()) // 2, 100))
 
-    # Danh sách nút: (label, rect)
-    buttons = [
-        ("PLAY", pygame.Rect((SCREEN_WIDTH - 200) // 2, 250, 200, 60)),
-        ("HOW TO PLAY", pygame.Rect((SCREEN_WIDTH - 300) // 2, 340, 300, 60)),
-        ("EXIT", pygame.Rect((SCREEN_WIDTH - 200) // 2, 430, 200, 60)),
-    ]
-
-    for label, rect in buttons:
-        pygame.draw.rect(screen, (50, 200, 100), rect, border_radius=10)
-        text = MENU_FONT_BTN.render(label, True, (255, 255, 255))
-        screen.blit(text, (
-            rect.x + (rect.width - text.get_width()) // 2,
-            rect.y + (rect.height - text.get_height()) // 2
-        ))
-
-    return buttons
 
 
 while True:
@@ -146,6 +143,27 @@ while True:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
+        if show_dialog:
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if ok_button_rect.collidepoint(event.pos):
+                    # Reset lại game
+                    car.x, car.y = Start_X, Start_Y
+                    car.rect.topleft = (int(car.x), int(car.y))
+                    car.speed, car.angle = 0, 0
+                    car.auto_mode = False
+                    pedestrian_sprites.empty()
+                    user_goal_cell = None
+                    user_goal_rect = None
+                    path = []
+                    path_time = 0
+                    path_length = 0
+                    block_frames = 0
+                    clear_frames = 0
+                    prev_car_position = (int(car.y) // CELL_SIZE, int(car.x) // CELL_SIZE)
+                    show_dialog = False
+                    dialog_mode = None
+                    game_run = "game"
+            continue  # Nếu đang show dialog thì không xử lý các nút khác
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and game_run == "game":
             if save_rect.collidepoint(event.pos):
                 if user_goal_cell:
@@ -177,26 +195,7 @@ while True:
                         path_length = len(path)
                         path_time = path_length * 1.0 + count_turns(path) * 0.5
 
-    if game_run == "menu":
-        screen.fill((24, 24, 24))
-        if playBtn.draw(screen):
-            game_run = "game"
-        btns = draw_menu()
-        pygame.display.update()
-        clock.tick(60)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if btns[0][1].collidepoint(event.pos):
-                    game_run = "game"
-                elif btns[1][1].collidepoint(event.pos):
-                    print("Hướng dẫn: Dùng phím mũi tên để lái, SAVE để ghi lại thuật toán")
-                elif btns[2][1].collidepoint(event.pos):
-                    pygame.quit()
-                    sys.exit()
-        continue
+   
 
     if game_run == "game":
         screen.fill((0, 0, 0))
@@ -234,11 +233,11 @@ while True:
         else:
             car.update_auto_move()
 
-        for border in border_rects:
-            if car.rect.colliderect(border):
-                car.x, car.y = Start_X, Start_Y
-                car.speed, car.angle = 0, 0
-                game_run = "col"
+        
+        if check_collision() and not show_dialog:
+            car.speed = 0
+            show_dialog = True
+            dialog_mode = "collision"
 
         for col_sprite in sprite_col:
             if car.mask.overlap(pygame.mask.from_surface(col_sprite.image), (col_sprite.rect.x - car.rect.x, col_sprite.rect.y - car.rect.y)):
@@ -252,9 +251,13 @@ while True:
                 car.speed, car.angle = 0, 0
                 game_run = "col"
 
-        if user_goal_rect and user_goal_rect.contains(car.rect):
-            results_log.append((CURRENT_ALGO.upper(), round(path_time, 1), path_length))
-            game_run = "finish"
+        
+        if user_goal_rect and car.rect.colliderect(user_goal_rect) and not show_dialog:
+            car.speed = 0
+            show_dialog = True
+            dialog_mode = "success"
+ 
+
 
         
         sprite_group.draw(screen)
@@ -267,7 +270,7 @@ while True:
         current_time = pygame.time.get_ticks()
         if (current_time - spawn_timer > next_spawn_interval 
             and pedestrian_paths 
-            and len(pedestrian_sprites) < 5):  # chỉ khi < 2 người
+            and len(pedestrian_sprites) < 3):  # chỉ khi < 2 người
 
             spawn_random_pedestrian(pedestrian_paths, pedestrian_sprites, PEDESTRIAN_IMAGES)
             spawn_timer = current_time
@@ -315,7 +318,8 @@ while True:
 
         pedestrian_sprites.draw(screen)
         if user_goal_rect:
-            pygame.draw.rect(screen, (255, 0, 0), user_goal_rect, 3)
+            pygame.draw.rect(screen, (0, 255, 0), user_goal_rect, 0)  # xanh lá full
+            pygame.draw.rect(screen, (255, 255, 255), user_goal_rect, 3)  # viền trắng
         if path:
             for i in range(1, len(path)):
                 prev_row, prev_col = path[i - 1]
@@ -348,24 +352,20 @@ while True:
             save_rect.x + (save_rect.width - save_txt.get_width()) // 2,
             save_rect.y + (save_rect.height - save_txt.get_height()) // 2
         ))
+        if show_dialog:
+            pygame.draw.rect(screen, (255, 255, 255), dialog_rect, border_radius=12)
+            pygame.draw.rect(screen, (0, 0, 0), dialog_rect, 3, border_radius=12)
+
+            msg = "🚗 Successfully!" if dialog_mode == "success" else "💥 Va chạm!"
+            text = FONT_MAIN.render(msg, True, (0, 0, 0))
+            screen.blit(text, (dialog_rect.centerx - text.get_width() // 2, dialog_rect.y + 50))
+
+            pygame.draw.rect(screen, (0, 170, 0), ok_button_rect, border_radius=8)
+            ok_text = FONT_INFO.render("OK", True, (255, 255, 255))
+            screen.blit(ok_text, (ok_button_rect.centerx - ok_text.get_width() // 2,
+                                ok_button_rect.centery - ok_text.get_height() // 2))
 
         pygame.display.flip()
         clock.tick(60)
 
-    elif game_run == "col":
-        screen.fill((24, 24, 24))
-        draw_text("CRASHED", FONT_MAIN, TEXT_COL, BUTTON_X, BUTTON_Y)
-        draw_text("RETRY", FONT_MAIN, TEXT_COL, BUTTON_X, BUTTON_Y + 100)
-        if emptyBtn.draw(screen) or pygame.key.get_pressed()[pygame.K_r]:
-            game_run = "game"
-        pygame.display.update()
-        clock.tick(60)
-
-    elif game_run == "finish":
-        screen.fill((24, 24, 24))
-        draw_text("PARKED", FONT_MAIN, TEXT_COL, BUTTON_X, BUTTON_Y)
-        draw_text("NEXT", FONT_MAIN, TEXT_COL, BUTTON_X, BUTTON_Y + 100)
-        if emptyBtn.draw(screen) or pygame.key.get_pressed()[pygame.K_n]:
-            game_run = "game"
-        pygame.display.update()
-        clock.tick(60)
+    

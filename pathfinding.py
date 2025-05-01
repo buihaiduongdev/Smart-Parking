@@ -62,6 +62,70 @@ def dfs(grid, start, goal):
                 st.append((nx, ny))
     return reconstruct(goal, parent)
 
+# === Simple Hill Climbing ===
+def simple_hill_climbing(grid, start, goal):
+    rows, cols = len(grid), len(grid[0])
+    current = start
+    path = [current]
+    while current != goal:
+        neighbors = []
+        for dx, dy in [(0, 1), (1, 0), (-1, 0), (0, -1)]:
+            nx, ny = current[0] + dx, current[1] + dy
+            if 0 <= nx < rows and 0 <= ny < cols and grid[nx][ny] == 0:
+                neighbors.append((nx, ny))
+        if not neighbors:
+            return None  # No path found
+        current = min(neighbors, key=lambda n: heuristic(n, goal))
+        path.append(current)
+        if current == goal:
+            return path
+    return path
+
+# === BFS Sensorless ===
+def bfs_sensorless(grid, start, goal):
+    rows, cols = len(grid), len(grid[0])
+    q = deque([start])
+    visited = set()
+    visited.add(start)
+    while q:
+        current = q.popleft()
+        if current == goal:
+            return True  # Goal reached
+        for dx, dy in [(0, 1), (1, 0), (-1, 0), (0, -1)]:
+            nx, ny = current[0] + dx, current[1] + dy
+            if 0 <= nx < rows and 0 <= ny < cols and grid[nx][ny] == 0 and (nx, ny) not in visited:
+                visited.add((nx, ny))
+                q.append((nx, ny))
+    return False  # Goal not reachable
+
+# === CSP Backtracking ===
+def csp_backtracking(variables, domains, constraints):
+    def backtrack(assignment):
+        if len(assignment) == len(variables):
+            return assignment
+        var = select_unassigned_variable(variables, assignment)
+        for value in domains[var]:
+            if is_consistent(var, value, assignment, constraints):
+                assignment[var] = value
+                result = backtrack(assignment)
+                if result:
+                    return result
+                del assignment[var]
+        return None
+
+    def select_unassigned_variable(variables, assignment):
+        for var in variables:
+            if var not in assignment:
+                return var
+
+    def is_consistent(var, value, assignment, constraints):
+        for constraint in constraints:
+            if not constraint(var, value, assignment):
+                return False
+        return True
+
+    return backtrack({})
+
 # === Dựng lại đường đi từ parent ===
 def reconstruct(goal, parent):
     if goal not in parent:
@@ -85,3 +149,32 @@ def count_turns(path):
             turns += 1
         prev_dir = curr_dir
     return turns
+
+# === Q-Learning ===
+import numpy as np
+import random
+
+class QLearning:
+    def __init__(self, state_size, action_size, learning_rate=0.1, discount_factor=0.9, exploration_rate=1.0, exploration_decay=0.99):
+        self.state_size = state_size
+        self.action_size = action_size
+        self.learning_rate = learning_rate
+        self.discount_factor = discount_factor
+        self.exploration_rate = exploration_rate
+        self.exploration_decay = exploration_decay
+        self.q_table = np.zeros((state_size, action_size))
+
+    def choose_action(self, state):
+        if random.uniform(0, 1) < self.exploration_rate:
+            return random.randint(0, self.action_size - 1)  # Chọn hành động ngẫu nhiên
+        return np.argmax(self.q_table[state])  # Chọn hành động tốt nhất theo Q-table
+
+    def update(self, state, action, reward, next_state):
+        best_next_action = np.argmax(self.q_table[next_state])
+        td_target = reward + self.discount_factor * self.q_table[next_state][best_next_action]
+        td_error = td_target - self.q_table[state][action]
+        self.q_table[state][action] += self.learning_rate * td_error
+
+    def decay_exploration(self):
+        self.exploration_rate *= self.exploration_decay
+        self.exploration_rate = max(self.exploration_rate, 0.01)  # Giới hạn tối thiểu

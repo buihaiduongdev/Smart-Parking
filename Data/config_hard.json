@@ -2,15 +2,18 @@
   "algorithms_to_run": [
     "a_star",
     "bfs",
-    "dfs"
+    "bfs",
+    "simple_hill_climbing",
+    "csp_backtracking",
+    "dqn"
   ],
-  "num_runs_per_algorithm": 100,
+  "num_runs_per_algorithm": 1,
   "simulation_speed_factor": 3,
   "run_headless": false,
   "max_run_time_ms": 60000,
   "results_output_file": "simulation_results.json",
   "_comment": "Pedestrian configuration below",
-  "max_pedestrians": 15,
+  "max_pedestrians": 2,
   "min_pedestrian_spawn_interval_ms": 500,
   "max_pedestrian_spawn_interval_ms": 2000,
   "pedestrian_speed": 2
