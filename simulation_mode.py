@@ -17,6 +17,12 @@ from pytmx.util_pygame import load_pygame
 import Button
 # from PIL import Image # No longer needed directly here
 
+from pathfinding import (
+    a_star, bfs, dfs, # Các hàm đã có
+    iddfs, greedy_bfs, simple_hill_climbing, # Các hàm mới
+    genetic_algorithm, backtracking, q_learning_pathfinder # Các hàm mới
+)
+
 # Initialize Pygame
 pygame.init()
 
@@ -59,7 +65,7 @@ SCREEN_WIDTH, SCREEN_HEIGHT = 1920, 1080
 screen = None # Initialize screen later if not headless
 if not RUN_HEADLESS:
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("Car Simulation Comparison")
+    pygame.display.set_caption(" = Simulation Comparison")
 clock = pygame.time.Clock()
 FPS = 60 # Target FPS for simulation steps
 
@@ -388,29 +394,17 @@ def draw_text(text, font_obj, color, x, y, surface):
 
 def get_pathfinding_function(algo_name):
     """Maps algorithm name string to the actual function."""
-    if algo_name == "a_star":
-        from pathfinding import a_star
-        return a_star
-    elif algo_name == "bfs":
-        from pathfinding import bfs
-        return bfs
-    elif algo_name == "dfs":
-        from pathfinding import dfs
-        return dfs
-    elif algo_name == "simple_hill_climbing":
-        from pathfinding import simple_hill_climbing
-        return simple_hill_climbing
-    elif algo_name == "bfs_sensorless":
-        from pathfinding import bfs_sensorless
-        return bfs_sensorless
-    elif algo_name == "csp_backtracking":
-        from pathfinding import csp_backtracking
-        return csp_backtracking
-    elif algo_name == "dqn":
-        from pathfinding import DQN  
-        return DQN
+    if algo_name == "a_star": return a_star
+    elif algo_name == "bfs": return bfs
+    elif algo_name == "dfs": return dfs
+    elif algo_name == "iddfs": return iddfs
+    elif algo_name == "greedy": return greedy_bfs # Đổi tên nếu cần
+    elif algo_name == "simple_hc": return simple_hill_climbing # Đổi tên nếu cần
+    elif algo_name == "ga": return genetic_algorithm # Đổi tên nếu cần
+    elif algo_name == "backtracking": return backtracking # Đổi tên nếu cần
+    # elif algo_name == "q_learning": return q_learning_pathfinder # Tạm ẩn nếu chưa sẵn sàng
     else:
-        print(f"Warning: Pathfinding algorithm '{algo_name}' not found.")
+        print(f"Warning: Pathfinding algorithm '{algo_name}' not found or mapped.")
         return None
 
 def find_random_valid_goal(grid, grid_rows, grid_cols, start_cell):

@@ -1,11 +1,12 @@
 {
   "algorithms_to_run": [
+    "bfs",
     "a_star",
-    "bfs",
-    "bfs",
-    "simple_hill_climbing",
-    "csp_backtracking",
-    "dqn"
+    "iddfs",
+    "greedy",
+    "simple_hc",
+    "ga",
+    "backtracking" 
   ],
   "num_runs_per_algorithm": 1,
   "simulation_speed_factor": 3,
@@ -17,5 +18,4 @@
   "min_pedestrian_spawn_interval_ms": 500,
   "max_pedestrian_spawn_interval_ms": 2000,
   "pedestrian_speed": 2
-
 }

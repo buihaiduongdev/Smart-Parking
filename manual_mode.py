@@ -70,7 +70,11 @@ CAR_IMAGE, PLAY_IMG, EMPTY_BTN_IMG, PEDESTRIAN_IMAGES, BUTTON_X, BUTTON_Y = load
 import Button
 from car import Car
 from pedestrian import spawn_random_pedestrian
-from pathfinding import a_star, bfs, dfs, count_turns
+from pathfinding import (
+    a_star, bfs, dfs, count_turns,
+    iddfs, greedy_bfs, simple_hill_climbing,
+    genetic_algorithm, backtracking, q_learning_pathfinder
+)
 from map_loader import load_map_objects, create_grid_from_map
 from game_state import *
 menu_bg = pygame.image.load("bgr2.jpg").convert()
@@ -103,11 +107,17 @@ car = Car(Start_X, Start_Y, 43, 74, CAR_IMAGE, border_rects)
 prev_car_position = (int(car.y) // CELL_SIZE, int(car.x) // CELL_SIZE)
 CURRENT_ALGO = "a_star"
 
-PANEL_RECT = pygame.Rect(SCREEN_WIDTH - 240, SCREEN_HEIGHT - 270, 170, 150)
+PANEL_RECT = pygame.Rect(SCREEN_WIDTH - 240, SCREEN_HEIGHT - 350, 170, 300) 
 BTN_RECTS = {
-    "a_star": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 10, 130, 25),
-    "bfs"   : pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 45, 130, 25),
-    "dfs"   : pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 80, 130, 25),
+    "bfs": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 10, 130, 25),
+    "dfs": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 40, 130, 25),
+    "iddfs": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 70, 130, 25),
+    "greedy": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 100, 130, 25),
+    "a_star": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 130, 130, 25),
+    "hc": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 160, 130, 25),
+    "ga": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 190, 130, 25),
+    "bt": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 220, 130, 25),
+    "ql": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 250, 130, 25),
 }
 
 results_log = []
@@ -130,10 +140,14 @@ def draw_algo_panel():
         label = "A*" if key == "a_star" else key.upper()
         txt = FONT_ALGO.render(label, True, (0, 0, 0))
         screen.blit(txt, (rect.centerx - txt.get_width() // 2, rect.centery - txt.get_height() // 2))
-
 def compute_path(grid, start, goal):
     if CURRENT_ALGO == "bfs": return bfs(grid, start, goal)
     elif CURRENT_ALGO == "dfs": return dfs(grid, start, goal)
+    elif CURRENT_ALGO == "iddfs": return iddfs(grid, start, goal)
+    elif CURRENT_ALGO == "greedy": return greedy_bfs(grid, start, goal)
+    elif CURRENT_ALGO == "hc": return simple_hill_climbing(grid, start, goal)
+    elif CURRENT_ALGO == "ga": return genetic_algorithm(grid, start, goal)
+    elif CURRENT_ALGO == "bt": return backtracking(grid, start, goal)
     return a_star(grid, start, goal)
 
 

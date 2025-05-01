@@ -140,3 +140,6 @@ def launch_analysis_ui():
     root.protocol("WM_DELETE_WINDOW", exit_program)
 
     root.mainloop()
+
+if __name__ == "__main__":
+    launch_analysis_ui()
