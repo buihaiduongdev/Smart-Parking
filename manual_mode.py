@@ -1,30 +1,27 @@
-
-# ------------------------------------------------------------------
 import pygame, sys, math, os, json, datetime, random
 from config import *
 from assets import load_assets
 from pytmx.util_pygame import load_pygame
- # GỌI POPUP THÔNG BÁO
+
 import tkinter as tk
 from tkinter import messagebox
-RESULT_FILE = "./Data/manual_results.json"           # nơi lưu JSON
-import threading, time, queue       #  >>> NEW
+RESULT_FILE = "./Data/manual_results.json"           
+import threading, time, queue       
 import Button
 from car import Car
 from pedestrian import spawn_random_pedestrian
 from pathfinding import (
     a_star, bfs, dfs, count_turns,
-    iddfs, greedy_bfs, simple_hill_climbing,
-    genetic_algorithm, backtracking, q_learning_pathfinder
+    simple_hill_climbing,
+    backtracking
 )
 from map_loader import load_map_objects, create_grid_from_map
 from game_state import *
 
-# ---- thông số điều khiển thread ----
-PATH_TIMEOUT      = 5       # giây cho phép thuật toán chạy
-path_task         = None    # type: threading.Thread | None
-path_cancel_ev    = None    # type: threading.Event | None
-path_queue        = queue.Queue()   # nơi worker trả về kết quả hoặc exception
+PATH_TIMEOUT      = 5       
+path_task         = None    
+path_cancel_ev    = None    
+path_queue        = queue.Queue()   
 def reset_game_state():
     """Đưa xe & giao diện về trạng thái khởi đầu và dọn các thread dang chạy."""
     global user_goal_cell, user_goal_rect, path, path_time, path_length
@@ -46,21 +43,20 @@ def reset_game_state():
     clear_frames    = 0
     prev_car_position = (int(car.y) // CELL_SIZE, int(car.x) // CELL_SIZE)
 
-    # huỷ mọi luồng tìm đường còn sống
     if path_task and path_task.is_alive():
         if path_cancel_ev:
-            path_cancel_ev.set()        # báo worker dừng càng sớm càng tốt
-        path_task.join(timeout=0.1)     # đợi chút rồi bỏ qua
+            path_cancel_ev.set()        
+        path_task.join(timeout=0.1)     
     path_task      = None
     path_cancel_ev = None
-    
+
 def _path_worker(grid, start, goal, algo, cancel_ev, out_q):
     try:
         res_path = compute_path(grid, start, goal)
 
-        if res_path:                         # Có đường
+        if res_path:                         
             out_q.put(("OK", res_path))
-        else:                                # KHÔNG có đường
+        else:                                
             out_q.put(("NOPATH", None))
 
     except Exception as e:
@@ -70,7 +66,6 @@ def start_pathfinding(grid_in_use, start_rc, goal_rc):
     """Huỷ luồng cũ (nếu có) và tạo luồng mới tìm đường."""
     global path_task, path_cancel_ev, path_queue, path_start_time
 
-    # dọn luồng cũ
     if path_task and path_task.is_alive():
         if path_cancel_ev:
             path_cancel_ev.set()
@@ -85,7 +80,7 @@ def start_pathfinding(grid_in_use, start_rc, goal_rc):
     )
     path_start_time = time.time()
     path_task.start()
-# ---------- Hàm tiện ích ghi/đọc JSON ----------
+
 def _load_results():
     if not os.path.exists(RESULT_FILE):
         return []
@@ -130,10 +125,9 @@ def save_results_log(results_log):
     if added:
         with open(RESULT_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-        print(f"✅  Đã lưu {added} bản ghi mới vào results.json")
+        print(f"Đã lưu {added} bản ghi mới vào results.json")
     else:
-        print("⏩  Không có bản ghi mới để lưu (đều trùng)")
-
+        print("Không có bản ghi mới để lưu (đều trùng)")
 
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
@@ -143,15 +137,13 @@ clock = pygame.time.Clock()
 from assets import load_assets
 CAR_IMAGE, PLAY_IMG, EMPTY_BTN_IMG, PEDESTRIAN_IMAGES, BUTTON_X, BUTTON_Y = load_assets(SCREEN_WIDTH, SCREEN_HEIGHT)
 
-
 menu_bg = pygame.image.load("bgr2.jpg").convert()
 menu_bg = pygame.transform.scale(menu_bg, (SCREEN_WIDTH, SCREEN_HEIGHT))
-# đặt cùng chỗ với các biến toàn cục khác
-path_on_base = True        # True = đang tính trên grid gốc
+
+path_on_base = True        
 
 MENU_FONT_TITLE = pygame.font.SysFont("consolas", 60, bold=True)
 MENU_FONT_BTN = pygame.font.SysFont("calibri", 36, bold=True)
-
 
 playBtn = Button.Button(BUTTON_X, BUTTON_Y, PLAY_IMG, 0.4)
 emptyBtn = Button.Button(BUTTON_X, BUTTON_Y + 100, EMPTY_BTN_IMG, 0.4)
@@ -159,9 +151,7 @@ saveBtn = Button.Button(SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT - 80, EMPTY_BTN_I
 autoBtn = Button.Button(SCREEN_WIDTH // 2 + 20, SCREEN_HEIGHT - 80, EMPTY_BTN_IMG, 0.4)
 save_json_rect = pygame.Rect((SCREEN_WIDTH - 100) // 2 - 110, SCREEN_HEIGHT - 50, 100, 40)
 
-
-
-prev_blocked = False     # trạng thái đường bị chắn của frame trước
+prev_blocked = False     
 from pytmx.util_pygame import load_pygame
 tmx_data = load_pygame("map.tmx")
 sprite_group = pygame.sprite.Group()
@@ -180,17 +170,14 @@ PANEL_RECT = pygame.Rect(SCREEN_WIDTH - 240, SCREEN_HEIGHT - 350, 170, 300)
 BTN_RECTS = {
     "bfs": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 10, 130, 25),
     "dfs": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 40, 130, 25),
-    "greedy": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 100, 130, 25),
     "a_star": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 130, 130, 25),
     "hc": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 160, 130, 25),
-    "ga": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 190, 130, 25),
     "bt": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 220, 130, 25),
-    "ql": pygame.Rect(PANEL_RECT.x + 15, PANEL_RECT.y + 250, 130, 25),
 }
 
 results_log = []
-# -- Dialog popup
-dialog_mode = None  # None, 'success', 'collision'
+
+dialog_mode = None  
 show_dialog = False
 dialog_rect = pygame.Rect((SCREEN_WIDTH - 550)//2, (SCREEN_HEIGHT - 250)//2, 550, 250)
 ok_button_rect = pygame.Rect(dialog_rect.centerx - 60, dialog_rect.bottom - 60, 120, 40)
@@ -211,13 +198,9 @@ def draw_algo_panel():
 def compute_path(grid, start, goal):
     if CURRENT_ALGO == "bfs": return bfs(grid, start, goal)
     elif CURRENT_ALGO == "dfs": return dfs(grid, start, goal)
-    elif CURRENT_ALGO == "greedy": return greedy_bfs(grid, start, goal)
     elif CURRENT_ALGO == "hc": return simple_hill_climbing(grid, start, goal)
-    elif CURRENT_ALGO == "ga": return genetic_algorithm(grid, start, goal)
     elif CURRENT_ALGO == "bt": return backtracking(grid, start, goal)
-    return a_star(grid, start, goal)
-
-
+    elif CURRENT_ALGO == "a_star": return a_star(grid, start, goal)
 
 while True:
     for event in pygame.event.get():
@@ -231,7 +214,7 @@ while True:
                     show_dialog  = False
                     dialog_mode  = None
                     game_run     = "game"
-            continue  # Nếu đang show dialog thì không xử lý các nút khác
+            continue  
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and game_run == "game":
             if save_rect.collidepoint(event.pos):
                 if user_goal_cell:
@@ -257,27 +240,20 @@ while True:
                     car_rc = (int(car.y)//CELL_SIZE, int(car.x)//CELL_SIZE)
                     start_pathfinding(dynamic_grid, car_rc, user_goal_cell)
 
-   
-
     if game_run == "game":
         screen.fill((0, 0, 0))
-        pygame.draw.rect(screen, (255,165,0), save_json_rect, border_radius=10)  # cam
+        pygame.draw.rect(screen, (255,165,0), save_json_rect, border_radius=10)  
         txt_json = FONT_INFO.render("JSON", True, (0,0,0))
         screen.blit(txt_json, (save_json_rect.centerx - txt_json.get_width()//2,
                                save_json_rect.centery - txt_json.get_height()//2))
-        # === Nút AUTO bên cạnh nút SAVE ===
+
         auto_rect = pygame.Rect((SCREEN_WIDTH - 100) // 2 + 110, SCREEN_HEIGHT - 50, 100, 40)
-        pygame.draw.rect(screen, (0, 170, 255), auto_rect, border_radius=10)  # light blue
+        pygame.draw.rect(screen, (0, 170, 255), auto_rect, border_radius=10)  
         auto_txt = FONT_INFO.render("AUTO", True, (255, 255, 255))
         screen.blit(auto_txt, (
             auto_rect.x + (auto_rect.width - auto_txt.get_width()) // 2,
             auto_rect.y + (auto_rect.height - auto_txt.get_height()) // 2
         ))
-
-
-
-
-
 
         keys = pygame.key.get_pressed()
         if car.auto_mode and (keys[pygame.K_UP] or keys[pygame.K_DOWN] or keys[pygame.K_LEFT] or keys[pygame.K_RIGHT]):
@@ -301,7 +277,7 @@ while True:
             car.speed = 0
             show_dialog = True
             dialog_mode = "collision"
-            # dọn thread và reset
+
             reset_game_state()
 
         for col_sprite in sprite_col:
@@ -316,31 +292,24 @@ while True:
                 car.speed, car.angle = 0, 0
                 game_run = "col"
 
-        
         if user_goal_rect and car.rect.colliderect(user_goal_rect) and not show_dialog:
             car.speed = 0
             show_dialog = True
             dialog_mode = "success"
- 
 
-
-        
         sprite_group.draw(screen)
         sprite_col.draw(screen)
         car.draw(screen)
         draw_algo_panel()
-        
-
 
         current_time = pygame.time.get_ticks()
         if (current_time - spawn_timer > next_spawn_interval 
             and pedestrian_paths 
-            and len(pedestrian_sprites) < 3):  # chỉ khi < 2 người
+            and len(pedestrian_sprites) < 3):  
 
             spawn_random_pedestrian(pedestrian_paths, pedestrian_sprites, PEDESTRIAN_IMAGES)
             spawn_timer = current_time
             next_spawn_interval = random.randint(MIN_SPAWN_TIME, MAX_SPAWN_TIME)
-
 
         pedestrian_sprites.update()
         dynamic_grid = [row[:] for row in grid]
@@ -357,23 +326,21 @@ while True:
         car_row, car_col = int(car.y) // CELL_SIZE, int(car.x) // CELL_SIZE
         car_rc           = (car_row, car_col)
 
-        # 1) đường hiện tại có đang bị chặn bởi pedestrian?
         blocked_now = path and any(dynamic_grid[r][c] for r, c in path)
         if blocked_now and not prev_blocked and user_goal_cell:
-            # Vừa MỚI bị người đi bộ cắt → tính đường tránh ngay (dùng dynamic_grid)
+
             if not path_task:
                 start_pathfinding(dynamic_grid, car_rc, user_goal_cell)
-        
+
         elif not blocked_now and prev_blocked and user_goal_cell:
-            # Vừa MỚI hết bị cắt → tìm lại đường ngắn nhất (dùng grid tĩnh)
+
             if not path_task:
                 start_pathfinding(grid, car_rc, user_goal_cell)
 
         prev_blocked = blocked_now 
-        # 2) tính cờ re-plan
+
         need_recalc = False
 
-        # --- A. block / clear debounce ---
         if blocked_now:
             block_frames += 1
             clear_frames  = 0
@@ -385,12 +352,10 @@ while True:
             if clear_frames == CLEAR_DEBOUNCE_FRAMES:
                 need_recalc = True
 
-        # --- B. xe sang ô mới ---
         if (car_row, car_col) != prev_car_position:
             prev_car_position = (car_row, car_col)
             need_recalc = True
 
-        # --- C. gọi thuật toán (nếu cần) ---
         if need_recalc and user_goal_cell and not path_task:
             grid_use = dynamic_grid if blocked_now else grid
             if need_recalc and user_goal_cell and not path_task and not show_dialog:
@@ -398,17 +363,17 @@ while True:
 
         pedestrian_sprites.draw(screen)
         if user_goal_rect:
-            pygame.draw.rect(screen, (0, 255, 0), user_goal_rect, 0)  # xanh lá full
-            pygame.draw.rect(screen, (255, 255, 255), user_goal_rect, 3)  # viền trắng
+            pygame.draw.rect(screen, (0, 255, 0), user_goal_rect, 0)  
+            pygame.draw.rect(screen, (255, 255, 255), user_goal_rect, 3)  
             if path_task:
                 if path_task.is_alive() and time.time() - path_start_time > PATH_TIMEOUT:
-                    print("⚠️  Hủy tính đường – quá thời gian cho phép")
+                    print("Hủy tính đường quá thời gian cho phép")
                     path_cancel_ev.set()
                     path_task.join(timeout=0.1)
-                    reset_game_state()              # về lại vị trí gốc
+                    reset_game_state()              
                     show_dialog  = True
-                    dialog_mode  = "collision"      # hoặc thông báo riêng
-                # worker đã xong & có dữ liệu?
+                    dialog_mode  = "collision"      
+
                 elif not path_task.is_alive():
                     try:
                         status, payload = path_queue.get_nowait()
@@ -417,14 +382,14 @@ while True:
                             path_length   = len(path)
                             path_time     = path_length * 1.0 + count_turns(path) * 0.5
                         elif status == "NOPATH":
-                            if path_on_base:                          # bế tắc thật
+                            if path_on_base:                          
                                 reset_game_state()
                                 show_dialog = True
                                 dialog_mode = "nopath"
-                            else:                                     # do pedestrian chắn
+                            else:                                     
                                 path.clear()
-                        else:   # "ERR"
-                            print("❌  Lỗi khi tìm đường:", payload)
+                        else:   
+                            print("Lỗi khi tìm đường:", payload)
                             reset_game_state()
                             show_dialog  = True
                             dialog_mode  = "collision"
@@ -441,7 +406,6 @@ while True:
                 y = curr_row * CELL_SIZE + CELL_SIZE // 2
                 pygame.draw.circle(screen, (255, 0, 0), (x, y), 8)
 
-        # Bảng luôn hiển thị ở góc trái trên cùng
         table_x, table_y = 20, 20
         row_h = 30
         headers = ["METHOD", "TIME", "DISTANCE"]
@@ -457,9 +421,9 @@ while True:
         txt2 = FONT_INFO.render(f"Time: {path_time:.1f}s", True, (255, 255, 0))
         screen.blit(txt1, (20, SCREEN_HEIGHT - 35))
         screen.blit(txt2, (SCREEN_WIDTH - txt2.get_width() - 20, SCREEN_HEIGHT - 35))
-        # === Nút SAVE giữa màn hình với nền xanh và chữ trắng ===
+
         save_rect = pygame.Rect((SCREEN_WIDTH - 100) // 2, SCREEN_HEIGHT - 50, 100, 40)
-        pygame.draw.rect(screen, (144, 238, 144), save_rect, border_radius=10)  # light green
+        pygame.draw.rect(screen, (144, 238, 144), save_rect, border_radius=10)  
         save_txt = FONT_INFO.render("SAVE", True, (255, 255, 255))
         screen.blit(save_txt, (
             save_rect.x + (save_rect.width - save_txt.get_width()) // 2,
@@ -470,8 +434,8 @@ while True:
             pygame.draw.rect(screen, (0, 0, 0), dialog_rect, 3, border_radius=12)
 
             msg = {
-                "success"  : "🚗 Successfully!",
-                "collision": "💥 Va chạm!",
+                "success"  : "Successfully!",
+                "collision": "Va chạm!",
                 "nopath"   : f"{CURRENT_ALGO.upper()} No path!"
             }.get(dialog_mode, "")
             text = FONT_MAIN.render(msg, True, (0, 0, 0))
@@ -484,5 +448,3 @@ while True:
 
         pygame.display.flip()
         clock.tick(60)
-
-    

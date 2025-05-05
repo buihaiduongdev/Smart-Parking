@@ -3,11 +3,13 @@
     "bfs",
     "dfs",
     "a_star",
-    "simple_hc",
-    "backtracking"
+    "sensorless_search",
+    "simple_hill_climbing",
+    "backtracking",
+    "q_learning"
   ],
   "num_runs_per_algorithm": 1,
-  "simulation_speed_factor": 3,
+  "simulation_speed_factor": 1,
   "run_headless": false,
   "max_run_time_ms": 60000,
   "results_output_file": "simulation_results.json",

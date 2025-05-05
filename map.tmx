@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="30" height="16" tilewidth="64" tileheight="64" infinite="0" nextlayerid="8" nextobjectid="159">
+<map version="1.10" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="30" height="16" tilewidth="64" tileheight="64" infinite="0" nextlayerid="8" nextobjectid="160">
  <editorsettings>
   <export format="csv"/>
  </editorsettings>
@@ -98,13 +98,13 @@
    <point/>
   </object>
   <object id="46" name="Border" type="Border" x="72.8814" y="22.0339" width="737.288" height="22.0339"/>
-  <object id="47" name="Border" type="Border" x="1061.02" y="23.7288" width="796.61" height="22.0339"/>
-  <object id="48" name="Border" type="Border" x="10.1695" y="74.5763" width="40.678" height="352.542"/>
+  <object id="47" name="Border" type="Border" x="774.641" y="23.7288" width="1082.99" height="22.0339"/>
+  <object id="48" name="Border" type="Border" x="10.1695" y="43.0368" width="40.678" height="601.073"/>
   <object id="49" name="Border" type="Border" x="18.6441" y="601.695" width="32.2034" height="372.881"/>
   <object id="50" name="Border" type="Border" x="66.1017" y="977.966" width="749.153" height="30.5085"/>
   <object id="51" name="Border" type="Border" x="1050.85" y="977.966" width="837.288" height="23.7288"/>
   <object id="52" name="Border" type="Border" x="1867.8" y="62.7119" width="40.678" height="362.712"/>
-  <object id="53" name="Border" type="Border" x="1869.49" y="601.695" width="32.2034" height="352.542"/>
+  <object id="53" name="Border" type="Border" x="1869.49" y="402.365" width="32.2034" height="551.872"/>
   <object id="59" name="RandomCar" type="Collision" gid="202" x="652.333" y="494.666" width="41" height="75"/>
   <object id="60" name="RandomCar" type="Collision" gid="179" x="1036.33" y="502.667" width="40" height="81"/>
   <object id="61" name="RandomCar" type="Collision" gid="193" x="1166.33" y="483.667" width="42" height="74"/>
@@ -148,6 +148,6 @@
   <object id="155" name="Border" type="Border" x="85.661" y="856.729" width="156.678" height="78.542"/>
   <object id="156" name="Border" type="Border" x="79.661" y="90.729" width="156.678" height="78.542"/>
   <object id="157" name="Border" type="Border" x="1685.66" y="90.729" width="156.678" height="78.542"/>
-  <object id="158" name="Border" type="Border" x="1687.66" y="854.729" width="156.678" height="78.542"/>
+  <object id="159" name="Border" type="Border" x="1725.72" y="842.574" width="156.678" height="78.542"/>
  </objectgroup>
 </map>
