@@ -1,196 +1,202 @@
-# analysis_ui.py
 import tkinter as tk
 from tkinter import ttk, messagebox
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
-import json, os
+import json, os, math
 from PIL import Image, ImageTk
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-#  HÀM VẼ PHÂN TÍCH
-# ──────────────────────────────────────────────────────────────────────────────
 def draw_analysis(canvas_frame):
-    """Đọc ./Data/simulation_results.json và vẽ 3 biểu đồ cột + 1 biểu đồ bánh
-       (mỗi lát 1 màu, legend 2 cột không tràn)."""
 
     for w in canvas_frame.winfo_children():
         w.destroy()
 
-    # Đọc dữ liệu --------------------------------------------------------------
+    results_file = "./Data/simulation_results.json"
     try:
-        with open("./Data/simulation_results.json", encoding="utf-8") as f:
+        with open(results_file, 'r', encoding="utf-8") as f:
             data = json.load(f)
+    except FileNotFoundError:
+        messagebox.showerror("Lỗi", f"Không tìm thấy file kết quả:\n{results_file}")
+        return
+    except json.JSONDecodeError:
+         messagebox.showerror("Lỗi", f"File kết quả không phải là JSON hợp lệ:\n{results_file}")
+         return
     except Exception as e:
         messagebox.showerror("Lỗi", f"Không thể đọc dữ liệu:\n{e}")
         return
 
-    algos, t_ms, steps, s_rate = [], [], [], []
+    algos = []
+    time_avg = []
+    path_len_avg = []
+    success_rate = []
+    turns_avg_list = []
+    nodes_expanded_avg = []
+    memory_nodes_avg = [] 
+
     for algo, info in data.items():
-        if None in (
-            info.get("time_avg_ms"),
-            info.get("path_len_avg"),
-            info.get("success_rate"),
-        ):
+        print(f"  Algorithm: {algo}") 
+
+        t_avg = info.get("time_avg_ms")
+        pl_avg = info.get("path_len_avg")
+        ac_avg = info.get("action_count_avg")
+        step_metric_avg = pl_avg if pl_avg is not None else ac_avg 
+        s_rate_val = info.get("success_rate")
+        turns_val = info.get("turns_avg") 
+        nodes_val = info.get("nodes_expanded_avg") 
+        mem_val = info.get("memory_nodes_avg") 
+
+        if None in (t_avg, step_metric_avg, s_rate_val):
+            print(f"    Skipping {algo}: Missing essential average data (time, steps/actions, or success rate).")
             continue
+
         algos.append(algo)
-        t_ms.append(info["time_avg_ms"])
-        steps.append(info["path_len_avg"])
-        s_rate.append(info["success_rate"] * 100)
+        time_avg.append(t_avg)
+        path_len_avg.append(step_metric_avg) 
+        success_rate.append(s_rate_val * 100) 
+        turns_avg_list.append(turns_val if turns_val is not None else 0) 
+        nodes_expanded_avg.append(nodes_val if nodes_val is not None else 0)
+        memory_nodes_avg.append(mem_val if mem_val is not None else 0)
 
     if not algos:
-        messagebox.showinfo("Thông báo", "Không có dữ liệu hợp lệ để phân tích.")
+        messagebox.showinfo("Thông báo", "Không có đủ dữ liệu hợp lệ để vẽ biểu đồ.")
         return
 
-    # Tạo figure ---------------------------------------------------------------
-    fig, axs = plt.subplots(2, 2, figsize=(20, 12))
-    fig.suptitle("Phân tích kết quả", fontsize=24, weight="bold")
+    num_metrics = 3 
+    if any(t > 0 for t in turns_avg_list): num_metrics += 1 
 
-    axs[0, 0].bar(algos, t_ms, color="#90caf9")
-    axs[0, 0].set_title("Thời gian trung bình (ms)")
-    axs[0, 0].set_ylabel("milliseconds")
+    num_cols = 2
+    num_rows = math.ceil(num_metrics / num_cols)
 
-    axs[0, 1].bar(algos, steps, color="#ffb74d")
-    axs[0, 1].set_title("Số bước trung bình")
-    axs[0, 1].set_ylabel("steps")
+    fig_height = 6 * num_rows
+    fig_width = 16 
 
-    axs[1, 0].bar(algos, s_rate, color="#66bb6a")
-    axs[1, 0].set_title("Tỉ lệ thành công (%)")
-    axs[1, 0].set_ylabel("%")
+    fig, axs = plt.subplots(num_rows, num_cols, figsize=(fig_width, fig_height), squeeze=False) 
+    fig.suptitle("Phân Tích Kết Quả Mô Phỏng", fontsize=20, weight="bold")
 
-    # Pie chart ---------------------------------------------------------------
-    labels, values = [], []
-    for algo, info in data.items():
-        for stt, rate in [
-            ("Thành công", info.get("success_rate", 0)),
-            ("Va chạm",    info.get("collision_rate", 0)),
-            ("Timeout",    info.get("timeout_rate", 0)),
-        ]:
-            labels.append(f"{algo} - {stt}")
-            values.append(rate)
+    plot_index = 0 
 
-    cmap = plt.cm.get_cmap("tab20", len(values))          # N màu khác nhau
-    colors = [cmap(i) for i in range(len(values))]
+    def plot_bar(ax, x_labels, y_values, title, ylabel, color):
+        ax.bar(x_labels, y_values, color=color)
+        ax.set_title(title, fontsize=14)
+        ax.set_ylabel(ylabel, fontsize=12)
+        ax.tick_params(axis='x', rotation=30, labelsize=10) 
+        ax.grid(axis='y', linestyle='--', alpha=0.7) 
 
-    wedges, *_ = axs[1, 1].pie(
-        values,
-        autopct="%1.1f%%",
-        pctdistance=0.75,
-        colors=colors,
-        startangle=90,
-        textprops=dict(color="white", fontsize=8),
-        wedgeprops=dict(edgecolor="white", linewidth=1),
-    )
+    row, col = divmod(plot_index, num_cols)
+    plot_bar(axs[row, col], algos, time_avg, "Thời gian trung bình (ms)", "milliseconds", "#90caf9")
+    plot_index += 1
 
-    axs[1, 1].set_title("Tỉ lệ trạng thái")
-    axs[1, 1].axis("equal")
+    row, col = divmod(plot_index, num_cols)
+    plot_bar(axs[row, col], algos, path_len_avg, "Số bước/hành động trung bình", "steps/actions", "#ffb74d")
+    plot_index += 1
 
-    # Legend hai cột bên phải
-    axs[1, 1].legend(
-        wedges,
-        labels,
-        title="Chú giải",
-        ncol=2,
-        loc="center left",
-        bbox_to_anchor=(1.02, 0.5),
-        fontsize=8,
-        title_fontsize=10,
-    )
+    row, col = divmod(plot_index, num_cols)
+    plot_bar(axs[row, col], algos, success_rate, "Tỉ lệ thành công (%)", "%", "#66bb6a")
+    plot_index += 1
 
-    plt.tight_layout(rect=[0, 0, 0.88, 0.95])  # chừa chỗ cho legend
+    if any(t is not None and t > 0 for t in turns_avg_list): 
+        row, col = divmod(plot_index, num_cols)
+        plot_bar(axs[row, col], algos, turns_avg_list, "Số lần rẽ trung bình", "turns", "#80cbc4")
+        plot_index += 1
 
-    # Nhúng vào Tkinter --------------------------------------------------------
+    while plot_index < num_rows * num_cols:
+        row, col = divmod(plot_index, num_cols)
+        fig.delaxes(axs[row, col])
+        plot_index += 1
+
+    plt.subplots_adjust(left=0.08, right=0.95, bottom=0.3, top=0.93, wspace=0.3, hspace=0.4)
+
     canvas = FigureCanvasTkAgg(fig, master=canvas_frame)
     canvas.draw()
-    canvas.get_tk_widget().pack(padx=20, pady=20)
+    canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-#  TIỆN ÍCH GIAO DIỆN
-# ──────────────────────────────────────────────────────────────────────────────
 def exit_program():
+    print("Exiting program.")
     os._exit(0)
-
 
 def open_analysis():
     win = tk.Toplevel()
     win.title("Phân tích kết quả Simulation")
-    win.attributes("-fullscreen", True)
-    win.bind("<Escape>", lambda e: win.attributes("-fullscreen", False))
+    win.geometry(f"{win.winfo_screenwidth()}x{win.winfo_screenheight()}+0+0") 
+    win.bind("<Escape>", lambda e: win.destroy()) 
 
-    try:
-        bg = Image.open("./Data/bgr3.jpg")
-        bg = bg.resize((win.winfo_screenwidth(), win.winfo_screenheight()))
-        bg_ph = ImageTk.PhotoImage(bg)
-        tk.Label(win, image=bg_ph).place(relwidth=1, relheight=1)
-        win._bg = bg_ph
-    except Exception as e:
-        print("Lỗi background:", e)
+    main_frame = tk.Frame(win, bg="white")
+    main_frame.pack(fill="both", expand=True)
 
-    main = tk.Frame(win, bg="white")
-    main.pack(fill="both", expand=True)
+    canvas_widget = tk.Canvas(main_frame, bg="white", highlightthickness=0)
 
-    canvas = tk.Canvas(main, bg="white", highlightthickness=0)
-    vsb = ttk.Scrollbar(main, orient="vertical", command=canvas.yview)
+    vsb = ttk.Scrollbar(main_frame, orient="vertical", command=canvas_widget.yview)
+    canvas_widget.configure(yscrollcommand=vsb.set)
+
     vsb.pack(side="right", fill="y")
-    canvas.pack(side="left", fill="both", expand=True)
-    canvas.configure(yscrollcommand=vsb.set)
+    canvas_widget.pack(side="left", fill="both", expand=True)
 
-    inner = tk.Frame(canvas, bg="white")
-    canvas.create_window((0, 0), window=inner, anchor="nw")
-    inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    inner_frame = tk.Frame(canvas_widget, bg="white")
+    canvas_widget.create_window((0, 0), window=inner_frame, anchor="nw")
 
-    draw_analysis(inner)
+    inner_frame.bind("<Configure>", lambda e: canvas_widget.configure(scrollregion=canvas_widget.bbox("all")))
 
+    draw_analysis(inner_frame)
+
+    close_button = tk.Button(win, text="Đóng (Esc)", command=win.destroy, font=("Consolas", 12), bg="#f44336", fg="white")
+    close_button.pack(pady=10)
 
 def launch_analysis_ui():
     root = tk.Tk()
     root.title("Simulation Completed")
-    root.attributes("-fullscreen", True)
-    root.bind("<Escape>", lambda e: root.attributes("-fullscreen", False))
+    root.geometry(f"{root.winfo_screenwidth()//2}x{root.winfo_screenheight()//2}+{root.winfo_screenwidth()//4}+{root.winfo_screenheight()//4}") 
+    root.attributes("-fullscreen", True) 
 
     try:
-        bg = Image.open("./Data/bgr3.jpg")
-        bg = bg.resize((root.winfo_screenwidth(), root.winfo_screenheight()))
-        bg_ph = ImageTk.PhotoImage(bg)
-        tk.Label(root, image=bg_ph).place(relwidth=1, relheight=1)
-        root._bg = bg_ph
+        bg_img = Image.open("./Data/bgr3.jpg") 
+
+        initial_w, initial_h = root.winfo_screenwidth()//2, root.winfo_screenheight()//2
+        bg_img = bg_img.resize((initial_w, initial_h))
+        bg_photo = ImageTk.PhotoImage(bg_img)
+        bg_label = tk.Label(root, image=bg_photo)
+        bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+        root._bg = bg_photo 
     except Exception as e:
-        print("Lỗi background:", e)
+        print(f"Lỗi load background cho cửa sổ chính: {e}")
+        root.config(bg="lightgrey") 
+
+    button_frame = tk.Frame(root, bg="white") 
+    button_frame.place(relx=0.5, rely=0.5, anchor="center")
 
     tk.Label(
-        root,
-        text="Simulation Hoàn tất!",
-        font=("Consolas", 48, "bold"),
-        bg="white",
+        button_frame,
+        text="Simulation Hoàn Tất!",
+        font=("Consolas", 36, "bold"), 
+        bg="white", 
         fg="black",
-    ).pack(pady=50)
+        padx=20, pady=10
+    ).pack(pady=(20, 10)) 
 
     tk.Button(
-        root,
+        button_frame,
         text="Phân tích kết quả",
-        font=("Consolas", 32, "bold"),
+        font=("Consolas", 24, "bold"), 
         bg="#4CAF50",
         fg="white",
-        padx=20,
-        pady=10,
-        command=open_analysis,
-    ).pack(pady=20)
+        padx=15, pady=8,
+        command=open_analysis, 
+        relief=tk.RAISED, 
+        bd=3 
+    ).pack(pady=10, fill=tk.X, padx=20)
 
     tk.Button(
-        root,
+        button_frame,
         text="Thoát",
-        font=("Consolas", 24),
+        font=("Consolas", 18), 
         bg="#f44336",
         fg="white",
-        padx=20,
-        pady=5,
+        padx=15, pady=5,
         command=exit_program,
-    ).pack(pady=20)
+        relief=tk.RAISED,
+        bd=3
+    ).pack(pady=(10, 20), fill=tk.X, padx=20)
 
     root.protocol("WM_DELETE_WINDOW", exit_program)
     root.mainloop()
-
 
 if __name__ == "__main__":
     launch_analysis_ui()

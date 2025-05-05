@@ -44,7 +44,7 @@ class Car:
         self.auto_path = self.smooth_path(path)  # use smooth path
         self.auto_index = 0
         self.auto_mode = True
-        self.speed = 2.0
+        self.speed = 3.0
 
     def update_auto_move(self):
         if self.auto_mode and self.auto_index < len(self.auto_path):
