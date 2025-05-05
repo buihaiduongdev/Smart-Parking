@@ -19,8 +19,8 @@ import Button
 
 from pathfinding import (
     a_star, bfs, dfs, # Các hàm đã có
-    iddfs, greedy_bfs, simple_hill_climbing, # Các hàm mới
-    genetic_algorithm, backtracking, q_learning_pathfinder # Các hàm mới
+    simple_hill_climbing, # Các hàm mới
+    backtracking # Các hàm mới
 )
 
 # Initialize Pygame
@@ -397,12 +397,8 @@ def get_pathfinding_function(algo_name):
     if algo_name == "a_star": return a_star
     elif algo_name == "bfs": return bfs
     elif algo_name == "dfs": return dfs
-    elif algo_name == "iddfs": return iddfs
-    elif algo_name == "greedy": return greedy_bfs # Đổi tên nếu cần
     elif algo_name == "simple_hc": return simple_hill_climbing # Đổi tên nếu cần
-    elif algo_name == "ga": return genetic_algorithm # Đổi tên nếu cần
     elif algo_name == "backtracking": return backtracking # Đổi tên nếu cần
-    # elif algo_name == "q_learning": return q_learning_pathfinder # Tạm ẩn nếu chưa sẵn sàng
     else:
         print(f"Warning: Pathfinding algorithm '{algo_name}' not found or mapped.")
         return None
@@ -759,7 +755,7 @@ for algo_name in ALGORITHMS_TO_RUN:
                 if 0 <= start_cell[0] < grid_rows and 0 <= start_cell[1] < grid_cols:
                     if temp_grid[start_cell[0]][start_cell[1]] == 0: # Check if blocked in temp_grid
                         print(f"   Running A* from {start_cell} to {user_goal_cell}")
-                        new_path = pathfinding_func(temp_grid, start_cell, user_goal_cell, max_time_ms=2000)
+                        new_path = pathfinding_func(temp_grid, start_cell, user_goal_cell)
                         if new_path:
                             print(f"   Path found by: Length={len(new_path)}")
                             current_path_cells = new_path

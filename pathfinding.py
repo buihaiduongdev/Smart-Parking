@@ -1,46 +1,70 @@
 # --- File: pathfinding.py ---
 import heapq
-from collections import deque
+from collections import deque, defaultdict # Thêm defaultdict
 import time
 import random
 import math
 import numpy as np
+from typing import Tuple, List, Set, Optional, Dict, FrozenSet # Thêm Set, Optional, Dict, FrozenSet
+
+# Định nghĩa các kiểu dữ liệu cho rõ ràng
+Point = Tuple[int, int]        # (row, col)
+Grid = List[List[int]]       # 0 là ô trống, 1 là tường (hoặc số khác nếu có)
+Path = List[Point]           # Danh sách các ô tạo thành đường đi
+BeliefStatePoint = Set[Point] # Tập hợp các vị trí có thể của tác tử
 
 # === Heuristic ===
-def heuristic(a, b):
+def heuristic(a: Point, b: Point) -> float: # Thêm type hints
     """Tính khoảng cách Manhattan giữa hai điểm (row, col)."""
     # Đảm bảo a và b là các tuple (row, col)
     if not (isinstance(a, tuple) and len(a) == 2 and isinstance(b, tuple) and len(b) == 2):
         # print(f"Cảnh báo Heuristic: Input không hợp lệ - a={a}, b={b}")
         return float('inf') # Trả về vô cực nếu input sai
-    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+    return float(abs(a[0] - b[0]) + abs(a[1] - b[1])) # Ép kiểu float
 
 # === Helpers ===
-def get_neighbors(grid, node):
+def get_neighbors(grid: Grid, node: Point) -> List[Point]: # Thêm type hints
     """Trả về danh sách các ô hàng xóm hợp lệ (ô trống) của một ô."""
     rows, cols = len(grid), len(grid[0])
     neighbors = []
     r, c = node
+    # Thứ tự ưu tiên có thể ảnh hưởng nhẹ đến một số thuật toán (DFS, HC)
+    # [(0, 1, 'R'), (1, 0, 'D'), (-1, 0, 'U'), (0, -1, 'L')]
     for dr, dc in [(0, 1), (1, 0), (-1, 0), (0, -1)]: # Phải, Dưới, Trên, Trái
         nr, nc = r + dr, c + dc
-        if 0 <= nr < rows and 0 <= nc < cols and grid[nr][nc] == 0:
+        if 0 <= nr < rows and 0 <= nc < cols and grid[nr][nc] == 0: # Chỉ đi vào ô trống (0)
             neighbors.append((nr, nc))
     return neighbors
 
-def reconstruct_path(came_from, current):
+# Hàm helper mới cho Sensorless và Q-Learning để lấy hành động/kết quả
+def get_valid_moves(grid: Grid, node: Point) -> List[Tuple[str, Point]]:
+    """Trả về danh sách các hành động hợp lệ và trạng thái kết quả."""
+    moves = []
+    rows, cols = len(grid), len(grid[0])
+    r, c = node
+    # Lưu ý: Thứ tự hành động có thể quan trọng cho Q-Learning nếu dùng epsilon-greedy tie-breaking
+    possible_actions: List[Tuple[int, int, str]] = [(0, 1, 'R'), (1, 0, 'D'), (-1, 0, 'U'), (0, -1, 'L')]
+    for dr, dc, action_char in possible_actions:
+        nr, nc = r + dr, c + dc
+        if 0 <= nr < rows and 0 <= nc < cols and grid[nr][nc] == 0:
+            moves.append((action_char, (nr, nc)))
+    return moves
+
+
+def reconstruct_path(came_from: Dict[Point, Optional[Point]], current: Point) -> Path: # Thêm type hints
     """Dựng lại đường đi từ dictionary came_from."""
     path = [current]
     while current in came_from and came_from[current] is not None:
-        current = came_from[current]
+        current = came_from[current] # Type hint đảm bảo current là Point
         path.append(current)
     return path[::-1] # Đảo ngược để có thứ tự start -> goal
 
 # === BFS Search ===
-def bfs(grid, start, goal):
+def bfs(grid: Grid, start: Point, goal: Point) -> Optional[Path]: # Thêm type hints
     """Tìm kiếm theo chiều rộng."""
     rows, cols = len(grid), len(grid[0])
     q = deque([(start, [start])]) # Hàng đợi lưu (node, path_list)
-    visited = {start}
+    visited: Set[Point] = {start} # Sửa type hint
     while q:
         (vertex, path) = q.popleft()
         if vertex == goal:
@@ -52,11 +76,11 @@ def bfs(grid, start, goal):
     return None # Không tìm thấy đường
 
 # === DFS Search ===
-def dfs(grid, start, goal, max_depth=1000): # Thêm giới hạn độ sâu cho DFS
+def dfs(grid: Grid, start: Point, goal: Point, max_depth: int = 1000) -> Optional[Path]: # Thêm type hints, giới hạn độ sâu
     """Tìm kiếm theo chiều sâu."""
     rows, cols = len(grid), len(grid[0])
-    stack = [(start, [start])] # Stack lưu (node, path_list)
-    visited = {start} # Chỉ cần visited để tránh lặp vô hạn cơ bản
+    stack: List[Tuple[Point, Path]] = [(start, [start])] # Sửa type hint
+    visited: Set[Point] = {start} # Chỉ cần visited để tránh lặp vô hạn cơ bản
     while stack:
         (vertex, path) = stack.pop()
         if vertex == goal:
@@ -64,23 +88,24 @@ def dfs(grid, start, goal, max_depth=1000): # Thêm giới hạn độ sâu cho 
         if len(path) > max_depth: # Kiểm tra giới hạn độ sâu
             continue
         # Ưu tiên khám phá sâu hơn (thêm vào stack trước)
+        # Đảo ngược để thứ tự khám phá tự nhiên hơn (L-U-D-R nếu get_neighbors là R,D,U,L)
         for neighbor in reversed(get_neighbors(grid, vertex)):
-             # Chỉ cần kiểm tra visited tổng thể là đủ cho DFS cơ bản
-             # Nếu muốn tránh chu trình trong 1 nhánh thì dùng `if neighbor not in path:`
+            # Chỉ cần kiểm tra visited tổng thể là đủ cho DFS cơ bản
+            # Nếu muốn tránh chu trình trong 1 nhánh thì dùng `if neighbor not in path:`
             if neighbor not in visited:
                 visited.add(neighbor)
                 stack.append((neighbor, path + [neighbor]))
     return None
 
 # === A* Search ===
-def a_star(grid, start, goal):
+def a_star(grid: Grid, start: Point, goal: Point) -> Optional[Path]: # Thêm type hints
     """Thuật toán tìm kiếm A*."""
-    open_set = []
-    heapq.heappush(open_set, (heuristic(start, goal), 0, start)) # (f_cost, g_cost, node)
-    came_from = {start: None}
-    g_score = {start: 0}
+    open_set: List[Tuple[float, float, Point]] = [] # Sửa type hint (f, g, node)
+    heapq.heappush(open_set, (heuristic(start, goal), 0.0, start)) # (f_cost, g_cost, node)
+    came_from: Dict[Point, Optional[Point]] = {start: None} # Sửa type hint
+    g_score: Dict[Point, float] = {start: 0.0} # Sửa type hint
     # f_score không cần lưu riêng vì có trong heap
-    open_set_hash = {start} # Để kiểm tra nhanh một nút có trong open_set không
+    open_set_hash: Set[Point] = {start} # Để kiểm tra nhanh một nút có trong open_set không
 
     while open_set:
         current_f, current_g, current_node = heapq.heappop(open_set)
@@ -90,7 +115,7 @@ def a_star(grid, start, goal):
             return reconstruct_path(came_from, current_node)
 
         for neighbor in get_neighbors(grid, current_node):
-            tentative_g_score = current_g + 1 # Chi phí di chuyển là 1
+            tentative_g_score = current_g + 1.0 # Chi phí di chuyển là 1
             current_neighbor_g = g_score.get(neighbor, float('inf'))
 
             if tentative_g_score < current_neighbor_g:
@@ -106,70 +131,23 @@ def a_star(grid, start, goal):
 
     return None
 
-# === IDDFS ===
-def dls(grid, node, goal, path, limit):
-    """Depth Limited Search - Hàm hỗ trợ cho IDDFS."""
-    if node == goal:
-        return path
-    if limit <= 0:
-        return None
-    for neighbor in get_neighbors(grid, node):
-        if neighbor not in path: # Tránh chu trình trong nhánh hiện tại
-            found_path = dls(grid, neighbor, goal, path + [neighbor], limit - 1)
-            if found_path:
-                return found_path
-    return None
-
-def iddfs(grid, start, goal, max_depth=10):
-    """Iterative Deepening Depth First Search."""
-    print(f"Running IDDFS with max_depth={max_depth}")
-    for depth in range(max_depth + 1):
-        # print(f"  IDDFS: Trying depth {depth}") # Debug
-        result = dls(grid, start, goal, [start], depth)
-        if result:
-            print(f"  IDDFS: Path found at depth {depth}")
-            return result
-    print(f"  IDDFS: No path found within depth {max_depth}")
-    return None
-
-# === Greedy Best-First Search ===
-def greedy_bfs(grid, start, goal):
-    """Tìm kiếm Tham lam Tốt nhất đầu tiên."""
-    open_set = []
-    heapq.heappush(open_set, (heuristic(start, goal), start)) # (h_cost, node)
-    came_from = {start: None}
-    visited = {start} # Greedy thường không quay lại nút đã thăm
-
-    while open_set:
-        _, current_node = heapq.heappop(open_set)
-
-        if current_node == goal:
-            return reconstruct_path(came_from, current_node)
-
-        for neighbor in get_neighbors(grid, current_node):
-            if neighbor not in visited: # Chỉ xét nút chưa thăm
-                visited.add(neighbor)
-                came_from[neighbor] = current_node
-                h_cost = heuristic(neighbor, goal)
-                heapq.heappush(open_set, (h_cost, neighbor))
-
-    return None
-
 # === Simple Hill Climbing ===
-def simple_hill_climbing(grid, start, goal, max_iterations=1000):
+def simple_hill_climbing(grid: Grid, start: Point, goal: Point, max_iterations: int = 1000) -> Optional[Path]: # Thêm type hints
     """Leo đồi đơn giản (có thể bị kẹt)."""
     current = start
-    path = [current]
+    path: Path = [current] # Sửa type hint
     iterations = 0
-    visited_branch = {start} # Chỉ tránh lặp lại trong nhánh leo đồi hiện tại
+    # visited_branch dùng để tránh quay lại ô vừa đi trong 1 lần leo
+    visited_branch: Set[Point] = {start}
 
     while current != goal and iterations < max_iterations:
         neighbors = get_neighbors(grid, current)
+        # Chỉ xét hàng xóm chưa đi qua trong lần leo này
         valid_neighbors = [n for n in neighbors if n not in visited_branch]
 
-        if not valid_neighbors: return None # Bị kẹt
+        if not valid_neighbors: return None # Bị kẹt nếu ko có hàng xóm hợp lệ
 
-        best_next_node = None
+        best_next_node: Optional[Point] = None
         current_h = heuristic(current, goal)
         found_better = False
         random.shuffle(valid_neighbors) # Ngẫu nhiên thứ tự kiểm tra
@@ -181,12 +159,13 @@ def simple_hill_climbing(grid, start, goal, max_iterations=1000):
                 found_better = True
                 break # Lấy hàng xóm tốt hơn đầu tiên
 
-        if found_better:
+        if found_better and best_next_node is not None: # Thêm kiểm tra best_next_node không phải None
             current = best_next_node
             path.append(current)
             visited_branch.add(current) # Đánh dấu đã thăm trong lần leo này
+            # Có thể reset visited_branch ở đây nếu muốn cho phép quay lại ô cũ sau khi đã tiến lên
         else:
-            return None # Bị kẹt ở cực tiểu địa phương
+            return None # Bị kẹt ở cực tiểu địa phương hoặc bình nguyên
 
         iterations += 1
         if current == goal: return path
@@ -194,124 +173,11 @@ def simple_hill_climbing(grid, start, goal, max_iterations=1000):
     return path if current == goal else None
 
 
-# === Genetic Algorithm ===
-def genetic_algorithm(grid, start, goal, population_size=50, generations=100, mutation_rate=0.1, elite_size=2):
-    """Thuật toán Di truyền tìm trạng thái đích, sau đó dùng A* tìm đường."""
-    ga_start_time = time.perf_counter()
-    print("Starting GA to find goal state...")
-    rows, cols = len(grid), len(grid[0])
-
-    def fitness(state_tuple, target_goal=goal):
-        h = heuristic(state_tuple, target_goal)
-        # Tránh chia cho 0 nếu heuristic là 0 (đã đến đích)
-        return 1.0 / (1.0 + h) if h > -1 else float('inf') # Hoặc một giá trị rất lớn
-
-    def mutate(state_tuple):
-        neighbors = get_neighbors(grid, state_tuple)
-        return random.choice(neighbors) if neighbors else state_tuple
-
-    # --- Khởi tạo quần thể (Đã sửa) ---
-    population = {start}
-    valid_cells = [(r, c) for r in range(rows) for c in range(cols) if grid[r][c] == 0 and (r, c) != start]
-    needed = population_size - len(population)
-    count_to_add = min(needed, len(valid_cells))
-    if count_to_add > 0:
-        random_sample = random.sample(valid_cells, count_to_add)
-        population.update(random_sample)
-    print(f"Initialized GA population with {len(population)} individuals.")
-    if len(population) < population_size:
-         print(f"Warning: Could only initialize {len(population)}/{population_size} individuals.")
-
-    best_state_overall = start
-    best_fitness_overall = fitness(start)
-    goal_found_in_ga = False
-
-    # --- Vòng lặp tiến hóa ---
-    for gen in range(generations):
-        # Thêm kiểm tra nếu quần thể rỗng (ít khi xảy ra)
-        if not population:
-             print("GA Error: Population became empty.")
-             break
-
-        pop_with_fitness = []
-        for state in population:
-             fit_val = fitness(state)
-             # Bỏ qua trạng thái không hợp lệ (heuristic trả về inf)
-             if fit_val != float('inf'):
-                  pop_with_fitness.append((fit_val, state))
-
-        if not pop_with_fitness: # Nếu tất cả trạng thái lỗi
-             print("GA Error: All individuals have invalid fitness.")
-             break
-
-        pop_with_fitness.sort(reverse=True, key=lambda x: x[0])
-
-        # Kiểm tra heuristic = 0 (vì fitness có thể không chính xác 1.0 do float)
-        current_best_h = heuristic(pop_with_fitness[0][1], goal)
-        if current_best_h == 0:
-            best_state_overall = pop_with_fitness[0][1]
-            goal_found_in_ga = True
-            print(f"GA found goal state in generation {gen}.")
-            break
-
-        current_gen_best_fitness, current_gen_best_state = pop_with_fitness[0]
-        if current_gen_best_fitness > best_fitness_overall:
-            best_fitness_overall = current_gen_best_fitness
-            best_state_overall = current_gen_best_state
-
-        new_population = set()
-        # Đảm bảo elite_size không lớn hơn kích thước quần thể hiện tại
-        actual_elite_size = min(elite_size, len(pop_with_fitness))
-        elites = {state for _, state in pop_with_fitness[:actual_elite_size]}
-        new_population.update(elites)
-
-        # Lấy danh sách trạng thái hợp lệ từ pop_with_fitness
-        population_list = [state for _, state in pop_with_fitness]
-        if not population_list: continue # Nếu không có cá thể nào hợp lệ để chọn
-
-        while len(new_population) < population_size:
-            # Chọn lọc đơn giản
-            p1 = random.choice(population_list)
-            p2 = random.choice(population_list)
-            parent = p1 if fitness(p1) >= fitness(p2) else p2 # Cần đảm bảo fitness hợp lệ
-
-            # Đột biến
-            offspring = mutate(parent) if random.random() < mutation_rate else parent
-            new_population.add(offspring)
-
-        population = new_population
-        population.add(best_state_overall) # Giữ cá thể tốt nhất
-        while len(population) > population_size: population.pop() # Giữ kích thước
-
-    ga_end_time = time.perf_counter()
-
-    # --- Gọi A* để tìm đường ---
-    final_path_result = None # Kết quả cuối cùng
-    if best_state_overall == goal or goal_found_in_ga:
-        print("GA confirmed goal state. Searching for path using A*...")
-        astar_start_time = time.perf_counter()
-        astar_path_result = a_star(grid, start, goal) # Tìm đường từ start gốc đến goal
-        astar_end_time = time.perf_counter()
-        astar_time = astar_end_time - astar_start_time
-
-        if astar_path_result:
-            print(f"A* found path in {astar_time:.4f}s.")
-            final_path_result = astar_path_result
-        else:
-            print(f"Warning: GA found goal, but A* failed to find path.")
-            final_path_result = None
-    else:
-        print("GA did not find the goal state within generations limit.")
-        final_path_result = None
-
-    return final_path_result # Chỉ trả về path hoặc None
-
-
 # === Backtracking ===
-def backtracking(grid, start, goal, max_depth=500, max_time_ms=2000):
-    """Tìm kiếm quay lui (DFS với kiểm tra chu trình trên path)."""
+def backtracking(grid: Grid, start: Point, goal: Point, max_depth: int = 500, max_time_ms: int = 2000) -> Optional[Path]: # Thêm type hints
+    """Tìm kiếm quay lui (DFS với kiểm tra chu trình trên path và giới hạn thời gian)."""
     start_time = time.time()  # Lưu thời gian bắt đầu
-    stack = [(start, [start])]  # (current_node, path_list)
+    stack: List[Tuple[Point, Path]] = [(start, [start])]  # (current_node, path_list)
 
     while stack:
         # Kiểm tra thời gian chạy
@@ -325,77 +191,230 @@ def backtracking(grid, start, goal, max_depth=500, max_time_ms=2000):
         if vertex == goal:
             return path
 
+        # Kiểm tra giới hạn độ sâu
         if len(path) > max_depth:
             continue
 
+        # Khám phá hàng xóm (đảo ngược để hợp với stack pop)
         for neighbor in reversed(get_neighbors(grid, vertex)):
-            if neighbor not in path:  # Tránh chu trình trong đường đi hiện tại
+            # Chỉ cần kiểm tra neighbor không nằm trong path hiện tại để tránh chu trình
+            if neighbor not in path:
                 stack.append((neighbor, path + [neighbor]))
 
     return None
 
 
-# === Q-Learning Pathfinder ===
-def q_learning_pathfinder(grid, start, goal, q_table_file="q_table.npy", max_steps=1000):
-    """Tìm đường đi bằng Q-table đã huấn luyện (Cần file .npy)."""
-    print("Attempting Q-Learning pathfinder...")
+# === Sensorless Search (BFS on Belief States for Grid) ===
+def sensorless_search(grid: Grid, initial_belief_state: BeliefStatePoint, goal: Point, max_time_ms: int = 5000) -> Optional[List[str]]: # Trả về chuỗi hành động 'U', 'D', 'L', 'R'
+    """Tìm một chuỗi hành động để đạt đích từ bất kỳ trạng thái nào trong belief state ban đầu."""
+    start_time = time.time()
+
+    # Kiểm tra input cơ bản
+    if not initial_belief_state:
+        print("Sensorless Search: Belief state ban đầu rỗng.")
+        return None
+    if goal in initial_belief_state and len(initial_belief_state) == 1:
+        return [] # Đã ở đích
+
+    rows, cols = len(grid), len(grid[0] )
+
+    # Hàng đợi lưu (chuoi_hanh_dong, current_belief_state)
+    # Dùng frozenset cho belief state để có thể hash và lưu trong visited
+    queue: deque[Tuple[str, FrozenSet[Point]]] = deque([("", frozenset(initial_belief_state))])
+    visited: Set[FrozenSet[Point]] = {frozenset(initial_belief_state)}
+
+    possible_actions = ['U', 'D', 'L', 'R']
+    action_deltas = {'U': (-1, 0), 'D': (1, 0), 'L': (0, -1), 'R': (0, 1)}
+
+    while queue:
+        # Kiểm tra thời gian
+        elapsed_time_ms = (time.time() - start_time) * 1000
+        if elapsed_time_ms > max_time_ms:
+            print("Sensorless Search: Timeout reached!")
+            return None
+
+        action_path_str, current_belief_frozen = queue.popleft()
+        current_belief = set(current_belief_frozen) # Chuyển lại thành set để xử lý
+
+        # Kiểm tra xem tất cả các trạng thái trong belief state hiện tại có phải là đích không
+        if all(node == goal for node in current_belief):
+            return list(action_path_str) # Trả về list các ký tự hành động
+
+        # Thử áp dụng từng hành động có thể ('U', 'D', 'L', 'R')
+        for action_char in possible_actions:
+            next_belief: BeliefStatePoint = set()
+            dr, dc = action_deltas[action_char]
+
+            # Tính toán belief state kết quả khi thực hiện hành động 'action_char'
+            for r, c in current_belief:
+                nr, nc = r + dr, c + dc
+                # Nếu hành động hợp lệ (trong lưới và không phải tường)
+                if 0 <= nr < rows and 0 <= nc < cols and grid[nr][nc] == 0:
+                    next_belief.add((nr, nc)) # Thêm trạng thái kết quả
+                else:
+                    next_belief.add((r, c)) # Nếu không di chuyển được, tác tử vẫn ở vị trí cũ
+
+            # Nếu belief state kết quả không rỗng và chưa được thăm
+            if next_belief:
+                frozen_next_belief = frozenset(next_belief)
+                if frozen_next_belief not in visited:
+                    visited.add(frozen_next_belief)
+                    queue.append((action_path_str + action_char, frozen_next_belief))
+
+    print("Sensorless Search: Không tìm thấy kế hoạch phù hợp.")
+    return None
+
+# === Q-Learning (Simple Tabular Version for Grid Pathfinding) ===
+def q_learning_pathfinding(
+    grid: Grid, start: Point, goal: Point,
+    episodes: int = 5000,         # Số lượt huấn luyện
+    alpha: float = 0.1,          # Tốc độ học
+    gamma: float = 0.9,          # Hệ số chiết khấu
+    epsilon_start: float = 0.9,  # Epsilon ban đầu (cao để khám phá)
+    epsilon_end: float = 0.05, # Epsilon cuối cùng (thấp để khai thác)
+    epsilon_decay: float = 0.999,# Tốc độ giảm epsilon
+    max_steps_episode: int = 200,# Giới hạn bước trong 1 episode huấn luyện
+    max_steps_solve: int = 500   # Giới hạn bước khi trích xuất đường đi
+) -> Optional[Path]:
+    """Học đường đi bằng Q-Learning và trả về path."""
+    print(f"Q-Learning: Bắt đầu huấn luyện ({episodes} episodes)...")
+    training_start_time = time.time()
     rows, cols = len(grid), len(grid[0])
-    state_size = rows * cols; action_size = 4 # U, D, L, R (giả định)
 
-    def state_to_index(r, c): return r * cols + c
-    # Định nghĩa action_map và index cẩn thận
-    # Hành động: 0: Lên (-1, 0), 1: Xuống (1, 0), 2: Trái (0, -1), 3: Phải (0, 1)
-    action_map = {0: (-1, 0), 1: (1, 0), 2: (0, -1), 3: (0, 1)}
-    action_indices = {v: k for k, v in action_map.items()} # (dr, dc) -> index
+    # Q-table: Dict[Point, Dict[str, float]] -> Q(state, action)
+    q_table: Dict[Point, Dict[str, float]] = defaultdict(lambda: defaultdict(float))
+    epsilon = epsilon_start
 
-    try:
-        q_table = np.load(q_table_file)
-        if q_table.shape != (state_size, action_size):
-             print(f"Lỗi: Q-table shape {q_table.shape} != expected {(state_size, action_size)}"); return None
-        print(f"Loaded Q-table từ {q_table_file}")
-    except FileNotFoundError: print(f"Lỗi: Không tìm thấy Q-table '{q_table_file}'. Cần huấn luyện trước."); return None
-    except Exception as e: print(f"Lỗi load Q-table: {e}"); return None
+    # --- Pha Huấn Luyện ---
+    for episode in range(episodes):
+        current_pos = start
+        if episode % (episodes // 10) == 0 and episode > 0: # In tiến độ
+             print(f"  Q-Learning Episode {episode}/{episodes}, Epsilon: {epsilon:.3f}")
 
-    path = [start]; current_node = start; steps = 0; visited_ql = {start}
+        for _ in range(max_steps_episode):
+            if current_pos == goal:
+                break # Đạt đích trong episode này
 
-    while current_node != goal and steps < max_steps:
-        current_state_idx = state_to_index(current_node[0], current_node[1])
-        valid_neighbors = get_neighbors(grid, current_node)
-        if not valid_neighbors: break # Kẹt
+            valid_moves = get_valid_moves(grid, current_pos)
+            if not valid_moves: break # Bị kẹt
 
-        possible_actions_details = [] # List of (q_value, action_index, neighbor_node)
-        for neighbor in valid_neighbors:
-            dr, dc = neighbor[0] - current_node[0], neighbor[1] - current_node[1]
-            move = (dr, dc)
-            if move in action_indices:
-                action_idx = action_indices[move]
-                q_value = q_table[current_state_idx, action_idx]
-                possible_actions_details.append((q_value, action_idx, neighbor))
+            action: str
+            next_pos: Point
 
-        if not possible_actions_details: break # Không có hành động hợp lệ nào?
+            # Chọn hành động (Epsilon-Greedy)
+            if random.random() < epsilon:
+                action, next_pos = random.choice(valid_moves) # Khám phá
+            else:
+                # Khai thác: chọn hành động có Q-value cao nhất
+                best_q = -float('inf')
+                best_actions = []
+                for act, next_state in valid_moves:
+                    q_val = q_table[current_pos][act]
+                    if q_val > best_q:
+                        best_q = q_val
+                        best_actions = [(act, next_state)]
+                    elif q_val == best_q:
+                        best_actions.append((act, next_state))
 
-        # Sắp xếp theo Q-value giảm dần và chọn hành động tốt nhất
-        possible_actions_details.sort(key=lambda x: x[0], reverse=True)
-        best_q_value = possible_actions_details[0][0]
+                if not best_actions: # Chưa có giá trị nào, chọn ngẫu nhiên
+                    action, next_pos = random.choice(valid_moves)
+                else: # Chọn ngẫu nhiên trong các hành động tốt nhất
+                    action, next_pos = random.choice(best_actions)
 
-        # Lấy tất cả các hành động có Q-value tốt nhất (để xử lý tie-breaking)
-        best_options = [opt for opt in possible_actions_details if opt[0] >= best_q_value - 1e-6] # So sánh float
+            # --- Cập nhật Q-value ---
+            # Phần thưởng: cao khi đến đích, nhỏ (âm) khi di chuyển
+            reward = -0.1 # Phạt nhẹ để khuyến khích đường ngắn
+            if next_pos == goal:
+                reward = 100.0 # Phần thưởng lớn khi đến đích
 
-        # Chọn ngẫu nhiên một trong các hành động tốt nhất
-        _, chosen_action_idx, next_node = random.choice(best_options)
+            # Tìm max Q-value của trạng thái kế tiếp
+            max_next_q = 0.0
+            if next_pos != goal:
+                next_state_moves = get_valid_moves(grid, next_pos)
+                if next_state_moves:
+                    q_values_next = [q_table[next_pos][act] for act, _ in next_state_moves]
+                    if q_values_next:
+                        max_next_q = max(q_values_next)
 
-        if next_node in visited_ql: return None # Phát hiện chu trình
+            # Công thức cập nhật Q-Learning
+            old_q = q_table[current_pos][action]
+            new_q = old_q + alpha * (reward + gamma * max_next_q - old_q)
+            q_table[current_pos][action] = new_q
 
-        path.append(next_node); visited_ql.add(next_node); current_node = next_node; steps += 1
+            current_pos = next_pos # Di chuyển đến trạng thái mới
 
-    return path if current_node == goal else None
+        # Giảm Epsilon
+        if epsilon > epsilon_end:
+            epsilon *= epsilon_decay
+
+    training_end_time = time.time()
+    print(f"Q-Learning: Huấn luyện xong sau {training_end_time - training_start_time:.2f}s.")
+    print("Q-Learning: Trích xuất đường đi...")
+
+    # --- Pha Trích Xuất Đường Đi (Khai thác) ---
+    path: Path = [start]
+    current_pos = start
+    visited_solve: Set[Point] = {start} # Tránh lặp trong lúc giải
+
+    for _ in range(max_steps_solve):
+        if current_pos == goal:
+            print("Q-Learning: Tìm thấy đường đi!")
+            return path # Trả về path nếu đến đích
+
+        valid_moves = get_valid_moves(grid, current_pos)
+        if not valid_moves:
+            print("Q-Learning: Bị kẹt khi trích xuất đường đi (không có bước đi hợp lệ).")
+            return None # Bị kẹt
+
+        # Chọn hành động tốt nhất (không khám phá nữa)
+        best_q = -float('inf')
+        best_action: Optional[str] = None
+        next_pos_from_best_action: Optional[Point] = None
+
+        possible_next_actions = []
+        for act, next_state in valid_moves:
+             q_val = q_table[current_pos].get(act, 0.0) # Lấy Q-value, mặc định là 0
+             possible_next_actions.append((q_val, act, next_state))
+
+        if not possible_next_actions: # Vẫn nên kiểm tra lại
+            print("Q-Learning: Bị kẹt khi trích xuất đường đi (lỗi logic?).")
+            return None
+
+        # Sắp xếp theo Q-value giảm dần, nếu bằng nhau thì ngẫu nhiên
+        random.shuffle(possible_next_actions) # Ngẫu nhiên trước khi sort để phá vỡ thế cân bằng
+        possible_next_actions.sort(key=lambda item: item[0], reverse=True)
+
+        # Lấy hành động tốt nhất
+        best_q_val, best_action, next_pos_from_best_action = possible_next_actions[0]
+
+        # Kiểm tra nếu hành động tốt nhất dẫn đến ô đã thăm -> có thể bị lặp
+        if next_pos_from_best_action in visited_solve:
+             # Thử hành động tốt thứ 2 nếu có và không bị lặp
+             if len(possible_next_actions) > 1 and possible_next_actions[1][2] not in visited_solve:
+                  print(f"Q-Learning: Tránh lặp, chọn hành động tốt thứ 2 từ {current_pos}")
+                  _, best_action, next_pos_from_best_action = possible_next_actions[1]
+             else:
+                  print(f"Q-Learning: Bị kẹt trong vòng lặp khi trích xuất đường đi tại {current_pos}.")
+                  # Có thể thử cho phép đi vào ô đã thăm 1 lần? Hoặc báo lỗi.
+                  # Hiện tại: báo lỗi
+                  return None # Bị kẹt trong lặp
+
+        # Di chuyển
+        current_pos = next_pos_from_best_action
+        path.append(current_pos)
+        visited_solve.add(current_pos)
+
+
+    print(f"Q-Learning: Không tìm thấy đường đi trong giới hạn {max_steps_solve} bước.")
+    return None # Không tìm thấy đường trong giới hạn bước
+
 
 # === Các hàm tiện ích khác nếu cần ===
-def count_turns(path):
+def count_turns(path: Optional[Path]) -> int: # Thêm type hints
     """Đếm số lần rẽ trong đường đi (dạng list các ô)."""
     if not path or len(path) < 3: return 0
     turns = 0
-    # Tính hướng cho đoạn đầu tiên
+    # Tính hướng cho đoạn đầu tiên (kiểm tra path[1] tồn tại)
     dx1, dy1 = path[1][1] - path[0][1], path[1][0] - path[0][0]
     prev_dir = (dx1, dy1)
 
@@ -410,54 +429,44 @@ def count_turns(path):
             prev_dir = curr_dir
     return turns
 
-# --- Lớp QLearning để huấn luyện (có thể nằm riêng) ---
-class QLearningTrainer: # Đổi tên để phân biệt với hàm pathfinder
-    def __init__(self, state_size, action_size, learning_rate=0.1, discount_factor=0.9, exploration_rate=1.0, exploration_decay=0.99, min_exploration_rate=0.01):
-        self.state_size = state_size; self.action_size = action_size
-        self.lr = learning_rate; self.gamma = discount_factor
-        self.epsilon = exploration_rate; self.epsilon_decay = exploration_decay; self.epsilon_min = min_exploration_rate
-        self.q_table = np.zeros((state_size, action_size))
-        # Định nghĩa action_map ở đây để nhất quán
-        # 0: Lên, 1: Xuống, 2: Trái, 3: Phải
-        self.action_map = {0: (-1, 0), 1: (1, 0), 2: (0, -1), 3: (0, 1)}
 
-    def choose_action(self, state_index, valid_actions_indices):
-        """Chọn hành động dùng epsilon-greedy trong tập các hành động hợp lệ."""
-        if not valid_actions_indices: return None # Không có hành động nào
-        if random.uniform(0, 1) < self.epsilon:
-            return random.choice(valid_actions_indices) # Khám phá
-        else:
-            # Khai thác: Chọn hành động hợp lệ có Q-value cao nhất
-            q_values = self.q_table[state_index, valid_actions_indices]
-            best_local_index = np.argmax(q_values)
-            return valid_actions_indices[best_local_index] # Trả về global action index
+# Ví dụ sử dụng (có thể bỏ đi khi tích hợp vào main)
+if __name__ == '__main__':
+    # Tạo grid mẫu (0: trống, 1: tường)
+    grid_example = [
+        [0, 0, 0, 0, 1, 0, 0, 0],
+        [0, 1, 1, 0, 1, 0, 1, 0],
+        [0, 1, 0, 0, 0, 0, 1, 0],
+        [0, 0, 0, 1, 1, 1, 1, 0],
+        [1, 1, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 1, 1, 1, 1],
+        [0, 1, 1, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 1, 1, 0, 0],
+    ]
+    start_point: Point = (0, 0)
+    goal_point: Point = (7, 7)
 
-    def update(self, state_index, action_index, reward, next_state_index):
-        """Cập nhật Q-table."""
-        best_next_q = np.max(self.q_table[next_state_index]) # Q-value tốt nhất của trạng thái kế tiếp
-        td_target = reward + self.gamma * best_next_q
-        td_error = td_target - self.q_table[state_index, action_index]
-        self.q_table[state_index, action_index] += self.lr * td_error
+    print("--- Thử nghiệm Sensorless Search ---")
+    # Giả sử ban đầu không chắc chắn vị trí, có thể là (0,0) hoặc (0,1)
+    initial_belief: BeliefStatePoint = {(0, 0), (0, 1)}
+    sensorless_plan = sensorless_search(grid_example, initial_belief, goal_point)
+    if sensorless_plan:
+        print(f"Sensorless Plan tìm được: {''.join(sensorless_plan)} (Độ dài: {len(sensorless_plan)})")
+    else:
+        print("Sensorless Search không tìm được kế hoạch.")
 
-    def decay_exploration(self):
-        """Giảm exploration rate."""
-        if self.epsilon > self.epsilon_min:
-            self.epsilon *= self.epsilon_decay
-            self.epsilon = max(self.epsilon_min, self.epsilon) # Đảm bảo không nhỏ hơn min
+    print("\n--- Thử nghiệm Q-Learning ---")
+    q_path = q_learning_pathfinding(grid_example, start_point, goal_point, episodes=10000) # Tăng episodes
+    if q_path:
+        print(f"Q-Learning Path tìm được (độ dài {len(q_path)}):")
+        # print(q_path)
+    else:
+        print("Q-Learning không tìm được đường đi.")
 
-    def save_q_table(self, filename="q_table.npy"):
-        np.save(filename, self.q_table)
-        print(f"Q-table saved to {filename}")
-
-    def load_q_table(self, filename="q_table.npy"):
-         try:
-              self.q_table = np.load(filename)
-              # Kiểm tra kích thước nếu cần
-              if self.q_table.shape != (self.state_size, self.action_size):
-                   print(f"Cảnh báo: Kích thước Q-table tải lên {self.q_table.shape} không khớp mong đợi {(self.state_size, self.action_size)}. Có thể gây lỗi.")
-              print(f"Q-table loaded from {filename}")
-         except FileNotFoundError: print(f"Lỗi: Không tìm thấy file Q-table {filename}.")
-         except Exception as e: print(f"Lỗi khi tải Q-table: {e}")
-
-# Bạn sẽ cần một hàm riêng để chạy quá trình huấn luyện Q-Learning
-# Ví dụ: def train_q_learning(grid, episodes, ...) -> QLearningTrainer: ...
+    print("\n--- Thử nghiệm A* để so sánh ---")
+    astar_path = a_star(grid_example, start_point, goal_point)
+    if astar_path:
+         print(f"A* Path tìm được (độ dài {len(astar_path)}):")
+         # print(astar_path)
+    else:
+         print("A* không tìm được đường đi.")
