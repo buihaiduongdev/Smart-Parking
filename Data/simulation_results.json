@@ -1,163 +1,25 @@
 {
-    "bfs": {
-        "total_runs": 1,
-        "successful_runs": 1,
-        "collisions": 0,
-        "timeouts": 0,
-        "path_failures": 0,
-        "completion_times_ms": [
-            2682
-        ],
-        "path_lengths": [
-            15
-        ],
-        "time_min_ms": 2682,
-        "time_max_ms": 2682,
-        "time_avg_ms": 2682,
-        "path_len_min": 15,
-        "path_len_max": 15,
-        "path_len_avg": 15,
-        "collision_rate": 0.0,
-        "timeout_rate": 0.0,
-        "path_failure_rate": 0.0,
-        "success_rate": 1.0
-    },
-    "a_star": {
-        "total_runs": 1,
-        "successful_runs": 1,
-        "collisions": 0,
-        "timeouts": 0,
-        "path_failures": 0,
-        "completion_times_ms": [
-            2843
-        ],
-        "path_lengths": [
-            16
-        ],
-        "time_min_ms": 2843,
-        "time_max_ms": 2843,
-        "time_avg_ms": 2843,
-        "path_len_min": 16,
-        "path_len_max": 16,
-        "path_len_avg": 16,
-        "collision_rate": 0.0,
-        "timeout_rate": 0.0,
-        "path_failure_rate": 0.0,
-        "success_rate": 1.0
-    },
-    "iddfs": {
-        "total_runs": 1,
-        "successful_runs": 1,
-        "collisions": 0,
-        "timeouts": 0,
-        "path_failures": 0,
-        "completion_times_ms": [
-            4854
-        ],
-        "path_lengths": [
-            17
-        ],
-        "time_min_ms": 4854,
-        "time_max_ms": 4854,
-        "time_avg_ms": 4854,
-        "path_len_min": 17,
-        "path_len_max": 17,
-        "path_len_avg": 17,
-        "collision_rate": 0.0,
-        "timeout_rate": 0.0,
-        "path_failure_rate": 0.0,
-        "success_rate": 1.0
-    },
-    "greedy": {
-        "total_runs": 1,
-        "successful_runs": 1,
-        "collisions": 0,
-        "timeouts": 0,
-        "path_failures": 0,
-        "completion_times_ms": [
-            1594
-        ],
-        "path_lengths": [
-            10
-        ],
-        "time_min_ms": 1594,
-        "time_max_ms": 1594,
-        "time_avg_ms": 1594,
-        "path_len_min": 10,
-        "path_len_max": 10,
-        "path_len_avg": 10,
-        "collision_rate": 0.0,
-        "timeout_rate": 0.0,
-        "path_failure_rate": 0.0,
-        "success_rate": 1.0
-    },
-    "simple_hc": {
-        "total_runs": 1,
-        "successful_runs": 1,
-        "collisions": 0,
-        "timeouts": 0,
-        "path_failures": 0,
-        "completion_times_ms": [
-            1360
-        ],
-        "path_lengths": [
-            8
-        ],
-        "time_min_ms": 1360,
-        "time_max_ms": 1360,
-        "time_avg_ms": 1360,
-        "path_len_min": 8,
-        "path_len_max": 8,
-        "path_len_avg": 8,
-        "collision_rate": 0.0,
-        "timeout_rate": 0.0,
-        "path_failure_rate": 0.0,
-        "success_rate": 1.0
-    },
-    "ga": {
-        "total_runs": 1,
-        "successful_runs": 1,
-        "collisions": 0,
-        "timeouts": 0,
-        "path_failures": 0,
-        "completion_times_ms": [
-            3206
-        ],
-        "path_lengths": [
-            16
-        ],
-        "time_min_ms": 3206,
-        "time_max_ms": 3206,
-        "time_avg_ms": 3206,
-        "path_len_min": 16,
-        "path_len_max": 16,
-        "path_len_avg": 16,
-        "collision_rate": 0.0,
-        "timeout_rate": 0.0,
-        "path_failure_rate": 0.0,
-        "success_rate": 1.0
-    },
     "backtracking": {
-        "total_runs": 1,
+        "total_runs": 10,
         "successful_runs": 1,
-        "collisions": 0,
+        "collisions": 9,
         "timeouts": 0,
         "path_failures": 0,
         "completion_times_ms": [
-            5180
+            5422
         ],
         "path_lengths": [
-            26
+            27
         ],
-        "time_min_ms": 5180,
-        "time_max_ms": 5180,
-        "time_avg_ms": 5180,
-        "path_len_min": 26,
-        "path_len_max": 26,
-        "path_len_avg": 26,
-        "collision_rate": 0.0,
+        "time_min_ms": 5422,
+        "time_max_ms": 5422,
+        "time_avg_ms": 5422,
+        "path_len_min": 27,
+        "path_len_max": 27,
+        "path_len_avg": 27,
+        "collision_rate": 0.9,
         "timeout_rate": 0.0,
         "path_failure_rate": 0.0,
-        "success_rate": 1.0
+        "success_rate": 0.1
     }
 }

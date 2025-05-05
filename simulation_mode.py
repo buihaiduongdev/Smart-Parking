@@ -759,7 +759,7 @@ for algo_name in ALGORITHMS_TO_RUN:
                 if 0 <= start_cell[0] < grid_rows and 0 <= start_cell[1] < grid_cols:
                     if temp_grid[start_cell[0]][start_cell[1]] == 0: # Check if blocked in temp_grid
                         print(f"   Running A* from {start_cell} to {user_goal_cell}")
-                        new_path = pathfinding_func(temp_grid, start_cell, user_goal_cell)
+                        new_path = pathfinding_func(temp_grid, start_cell, user_goal_cell, max_time_ms=2000)
                         if new_path:
                             print(f"   Path found by: Length={len(new_path)}")
                             current_path_cells = new_path

@@ -120,7 +120,7 @@ def dls(grid, node, goal, path, limit):
                 return found_path
     return None
 
-def iddfs(grid, start, goal, max_depth=50):
+def iddfs(grid, start, goal, max_depth=10):
     """Iterative Deepening Depth First Search."""
     print(f"Running IDDFS with max_depth={max_depth}")
     for depth in range(max_depth + 1):
@@ -308,20 +308,28 @@ def genetic_algorithm(grid, start, goal, population_size=50, generations=100, mu
 
 
 # === Backtracking ===
-def backtracking(grid, start, goal, max_depth=1000):
+def backtracking(grid, start, goal, max_depth=500, max_time_ms=2000):
     """Tìm kiếm quay lui (DFS với kiểm tra chu trình trên path)."""
-    stack = [(start, [start])] # (current_node, path_list)
+    start_time = time.time()  # Lưu thời gian bắt đầu
+    stack = [(start, [start])]  # (current_node, path_list)
 
     while stack:
+        # Kiểm tra thời gian chạy
+        elapsed_time_ms = (time.time() - start_time) * 1000
+        if elapsed_time_ms > max_time_ms:
+            print("Backtracking: Timeout reached!")
+            return None
+
         (vertex, path) = stack.pop()
 
         if vertex == goal:
             return path
 
-        if len(path) > max_depth: continue
+        if len(path) > max_depth:
+            continue
 
         for neighbor in reversed(get_neighbors(grid, vertex)):
-            if neighbor not in path: # Tránh chu trình trong đường đi hiện tại
+            if neighbor not in path:  # Tránh chu trình trong đường đi hiện tại
                 stack.append((neighbor, path + [neighbor]))
 
     return None
