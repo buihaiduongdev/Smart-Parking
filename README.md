@@ -84,3 +84,7 @@ Tạo file `config.json` trong cùng thư mục với `main.py` với nội dung
   "max_pedestrian_spawn_interval_ms": 10000,// Thời gian chờ tối đa (ms) giữa các lần spawn người đi bộ
   "pedestrian_speed": 1.2                 // Tốc độ cơ bản của người đi bộ (sẽ được nhân với simulation_speed_factor)
 }
+```
+
+## Nguồn tham khảo UI
+https://github.com/MindaugasUlskis/Python-Parking-Game-Pygame-
