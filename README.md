@@ -23,6 +23,8 @@ Dự án hoạt động dựa trên Pygame để điều khiển một chiếc 
     *   Ghi lại trạng thái kết thúc của mỗi lượt chạy (thành công, va chạm, hết giờ, lỗi tìm đường).
     *   Tính toán các chỉ số hiệu suất (thời gian hoàn thành trung bình, độ dài đường đi trung bình, tỷ lệ thành công, tỷ lệ va chạm, v.v.).
     *   Lưu kết quả tổng hợp vào file JSON.
+*   **Phân tích số liệu kết quả**
+    *   Vẽ biểu đồ hỗ trợ so sánh các thuật toán từ kết quả chạy mô phỏng.
 ## Cài đặt
 
 1.  **Clone repository:**
