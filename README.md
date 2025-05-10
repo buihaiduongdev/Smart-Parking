@@ -7,8 +7,7 @@ Dự án hoạt động dựa trên Pygame để điều khiển một chiếc 
 *   **Tải bản đồ TMX:** Tải và hiển thị bản đồ từ định dạng TMX bằng `pytmx`.
 *   **Mô phỏng Xe:**
     *   Điều khiển xe di chuyển theo đường đi được tính toán.
-    *   Mô phỏng vật lý cơ bản (tốc độ tối đa, giảm tốc khi vào cua).
-    *   Tự động tính toán lại đường đi nếu bị kẹt hoặc có yêu cầu.
+    *   Mô phỏng vật lý cơ bản.
 *   **Chướng ngại vật Động (Người đi bộ):**
     *   Spawn ngẫu nhiên người đi bộ di chuyển theo các đường đi được định nghĩa trước trong bản đồ TMX.
     *   Số lượng người đi bộ và tần suất spawn có thể cấu hình.
