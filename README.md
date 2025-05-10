@@ -25,7 +25,7 @@ Dự án hoạt động dựa trên Pygame để điều khiển một chiếc 
     *   Lưu kết quả tổng hợp vào file JSON.
 ## Cài đặt
 
-1.  **Clone repository (nếu có):**
+1.  **Clone repository:**
     ```bash
     git clone https://github.com/buihaiduongdev/Smart-Parking
     cd Smart-Parking
