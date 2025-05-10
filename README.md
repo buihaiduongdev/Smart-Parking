@@ -36,11 +36,6 @@ Dự án hoạt động dựa trên Pygame để điều khiển một chiếc 
     pip install pygame pytmx numpy
     ```
 
-3.  **Đảm bảo có đủ Assets và Modules:**
-    *   Đặt file `map.tmx` và các file ảnh (`PNG/...`) vào đúng cấu trúc thư mục mà script mong đợi.
-    *   Đặt các file `Button.py` và `pathfinding_algorithms.py` trong cùng thư mục với `main.py` hoặc đảm bảo chúng có thể được import.
-    *   Tạo file `config.json`.
-
 ## Cấu hình (`config.json`)
 
 Tạo file `config.json` trong cùng thư mục với `main.py` với nội dung tương tự như sau, điều chỉnh các giá trị theo nhu cầu:
