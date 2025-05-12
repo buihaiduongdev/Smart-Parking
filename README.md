@@ -56,7 +56,30 @@ Tạo file `config.json` trong cùng thư mục với `main.py` với nội dung
 }
 ```
 
-## Minh họa phần mền
-![Demo](https://raw.githubusercontent.com/buihaiduongdev/project-images/blob/main/Smart-Parking/smart-parking-demo.png)
+## Minh họa phần mềm
+### Thuật toán A\*
+   ![AS](https://github.com/buihaiduongdev/project-images/blob/main/Smart-Parking/smart-parking-demo.png)
+### Thuật toán BFS
+   ![BFS](https://github.com/buihaiduongdev/project-images/blob/main/Smart-Parking/smart-parking-bfs.jpg)
+### Thuật toán DFS
+   ![DFS](https://github.com/buihaiduongdev/project-images/blob/main/Smart-Parking/smart-parking-dfs.jpg)
+### Thuật toán Simple hill climbing
+   ![HC](https://github.com/buihaiduongdev/project-images/blob/main/Smart-Parking/smart-parking-hc.jpg)
+### Thuật toán Backtracking
+   ![BT](https://github.com/buihaiduongdev/project-images/blob/main/Smart-Parking/smart-parking-bt.jpg)
+### Chê độ mô phỏng
+   ![Simu](https://github.com/buihaiduongdev/project-images/blob/main/Smart-Parking/smart-parking-simulation.jpg)
+   
+   
+## Phân tích kết quả
+### Biểu đồ thời gian chạy trung bình
+   ![avgTime](https://github.com/buihaiduongdev/project-images/blob/main/Smart-Parking/smart-parking-avgTime.png)
+### Biểu đồ số bước chạy trung bình
+   ![avgAction](https://github.com/buihaiduongdev/project-images/blob/main/Smart-Parking/smart-parking-avgacTion.png)
+### Biểu đồ số lần rẽ trung bình
+   ![avgTurn](https://github.com/buihaiduongdev/project-images/blob/main/Smart-Parking/smart-parking-avgTurn.png)
+### Biểu đồ tỉ lệ thành công trung bình
+   ![avgSsuccess](https://github.com/buihaiduongdev/project-images/blob/main/Smart-Parking/smart-parking-avgSuccess.png)
+   
 ## Nguồn tham khảo UI
 https://github.com/MindaugasUlskis/Python-Parking-Game-Pygame-
