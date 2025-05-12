@@ -56,5 +56,7 @@ Tạo file `config.json` trong cùng thư mục với `main.py` với nội dung
 }
 ```
 
+## Minh họa phần mền
+![Demo](https://raw.githubusercontent.com/buihaiduongdev/project-images/blob/main/Smart-Parking/smart-parking-demo.png)
 ## Nguồn tham khảo UI
 https://github.com/MindaugasUlskis/Python-Parking-Game-Pygame-
