@@ -67,7 +67,7 @@ Tạo file `config.json` trong cùng thư mục với `main.py` với nội dung
    ![HC](https://github.com/buihaiduongdev/project-images/blob/main/Smart-Parking/smart-parking-hc.jpg)
 ### Thuật toán Backtracking
    ![BT](https://github.com/buihaiduongdev/project-images/blob/main/Smart-Parking/smart-parking-bt.jpg)
-### Chê độ mô phỏng
+### Chế độ mô phỏng
    ![Simu](https://github.com/buihaiduongdev/project-images/blob/main/Smart-Parking/smart-parking-simulation.jpg)
    
    
